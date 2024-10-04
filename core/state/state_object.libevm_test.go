@@ -23,6 +23,7 @@ import (
 
 	"github.com/ava-labs/libevm/common"
 	"github.com/ava-labs/libevm/core/types"
+	"github.com/ava-labs/libevm/libevm/clonable"
 )
 
 func TestStateObjectEmpty(t *testing.T) {
@@ -46,21 +47,21 @@ func TestStateObjectEmpty(t *testing.T) {
 		{
 			name: "explicit false bool",
 			registerAndSet: func(acc *types.StateAccount) {
-				types.RegisterExtras[bool]().SetOnStateAccount(acc, false)
+				types.RegisterExtras[clonable.Bool]().SetOnStateAccount(acc, false)
 			},
 			wantEmpty: true,
 		},
 		{
 			name: "implicit false bool",
 			registerAndSet: func(*types.StateAccount) {
-				types.RegisterExtras[bool]()
+				types.RegisterExtras[clonable.Bool]()
 			},
 			wantEmpty: true,
 		},
 		{
 			name: "true bool",
 			registerAndSet: func(acc *types.StateAccount) {
-				types.RegisterExtras[bool]().SetOnStateAccount(acc, true)
+				types.RegisterExtras[clonable.Bool]().SetOnStateAccount(acc, true)
 			},
 			wantEmpty: false,
 		},
