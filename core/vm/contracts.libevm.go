@@ -21,7 +21,7 @@ import (
 
 	"github.com/holiman/uint256"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/ava-labs/libevm/common"
 )
 
 // evmCallArgs mirrors the parameters of the [EVM] methods Call(), CallCode(),

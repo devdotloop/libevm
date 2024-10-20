@@ -1,0 +1,76 @@
+name: Rename Go module
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: 'Upstream commit on which to base module renaming'
+        required: true
+        type: string
+        default: '2bd6bd01d2e8561dd7fc21b631f4a34ac16627a1'
+
+jobs:
+  rename-module:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # everything
+
+      - name: Set variables
+        id: vars
+        # Including hashes of both the source commit and the workflow file makes
+        # this idempotent.
+        env:
+          WORKFLOW_HASH: ${{ hashFiles('.github/workflows/rename-module.yml') }}
+        run: |
+          echo "WORKFLOW_HASH=${WORKFLOW_HASH}" >> "$GITHUB_OUTPUT";
+          echo "DEST_BRANCH=auto-rename-module_source-${{ inputs.source_commit }}_workflow-${WORKFLOW_HASH}-${{ github.ref_name }}" \
+            >> "$GITHUB_OUTPUT";
+
+      - name: Check out source commit
+        run: git checkout ${{ inputs.source_commit }}
+
+      - name: Globally update module name
+        run: |
+          go mod edit -module github.com/ava-labs/libevm;
+          find . -iname '*.go' -o -iname '*.txt' | xargs sed -i -E \
+            's|(["`]github\.com/)ethereum/go-ethereum|\1ava-labs/libevm|g';
+
+      - name: Remnant references
+        run: |
+          find . -type f | \
+            xargs grep -In github.com/ethereum/go-ethereum | \
+            grep -v "https://github.com/ethereum/go-ethereum"
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.21.4
+
+      - name: Smoke tests
+        # `go list` shows us the module name and grep will non-zero exit on mismatch
+        # `go build` is a rudimentary but broad test of correctness
+        # The explicitly tested packages are edge cases:
+        # - bind generates tests and a go.mod on the fly
+        # - rlpgen has testdata with imports that need updating
+        run: |
+          go list . | grep ava-labs/libevm;
+          go build ./...;
+          go test ./accounts/abi/bind ./rlp/rlpgen
+
+      - name: Create new branch
+        env:
+          BRANCH: ${{ steps.vars.outputs.DEST_BRANCH }}
+        run: |
+          git checkout -b "${BRANCH}";
+          git push origin "${BRANCH}";
+
+      - name: Commit to new branch
+        uses: planetscale/ghcommit-action@d4176bfacef926cc2db351eab20398dfc2f593b5 # v0.2.0
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          commit_message: "[AUTO] rename Go module + update internal import paths\n\nWorkflow: ${{ steps.vars.outputs.WORKFLOW_HASH }} on branch ${{ github.ref_name }}"
+          repo: ${{ github.repository }}
+          branch: ${{ steps.vars.outputs.DEST_BRANCH }}
