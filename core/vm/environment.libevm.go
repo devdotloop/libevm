@@ -106,15 +106,7 @@ func (e *environment) callContract(typ callType, addr common.Address, input []by
 		if in.readOnly && !value.IsZero() {
 			return nil, gas, ErrWriteProtection
 		}
-		if e.evm.Config.Tracer != nil {
-			e.evm.Config.Tracer.CaptureEnter(CALL, caller.Address(), addr, input, gas, value.ToBig())
-		}
-		startGas := gas
-		ret, gas, err := e.evm.Call(caller, addr, input, gas, value)
-		if e.evm.Config.Tracer != nil {
-			e.evm.Config.Tracer.CaptureEnd(ret, startGas-gas, err)
-		}
-		return ret, gas, err
+		return e.evm.Call(caller, addr, input, gas, value)
 	case callCode, delegateCall, staticCall:
 		// TODO(arr4n): these cases should be very similar to CALL, hence the
 		// early abstraction, to signal to future maintainers. If implementing
