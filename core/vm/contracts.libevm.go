@@ -19,9 +19,11 @@ package vm
 import (
 	"fmt"
 	"math/big"
+	"unsafe"
 
 	"github.com/holiman/uint256"
 
+	"github.com/ava-labs/libevm/accounts/abi"
 	"github.com/ava-labs/libevm/common"
 	"github.com/ava-labs/libevm/core/types"
 	"github.com/ava-labs/libevm/libevm"
@@ -199,3 +201,57 @@ var (
 		(*EVM)(nil).StaticCall,
 	}
 )
+
+// SelectorByteLen is the number of bytes in an ABI function selector.
+const SelectorByteLen = 4
+
+// A Selector is an ABI function selector. It is a uint32 instead of a [4]byte
+// to allow for simpler hex literals.
+type Selector = uint32
+
+// ExtractSelector returns the first 4 bytes of the slice as a Selector. It
+// assumes that its input is of sufficient length.
+func ExtractSelector(data []byte) Selector {
+	arr := (*[SelectorByteLen]byte)(data)
+	return *(*Selector)(unsafe.Pointer(arr)) //nolint:gosec // Valid use under [unsafe.Pointer] documentation: (1) Conversion of a *T1 to Pointer to *T2.
+}
+
+// MethodsBySelector maps 4-byte ABI selectors to the corresponding method
+// representation. The key MUST be equivalent to the value's [abi.Method.ID].
+type MethodsBySelector map[Selector]abi.Method
+
+// BySelector remaps the Methods to be keyed by their Selectors.
+func BySelector(methods map[string]abi.Method) MethodsBySelector {
+	ms := make(MethodsBySelector)
+	for _, m := range methods {
+		ms[ExtractSelector(m.ID)] = m
+	}
+	return ms
+}
+
+// FindSelector extracts the Selector from `data` and, if it exists in `m`,
+// returns it. The returned boolean functions as for regular map lookups. Unlike
+// [ExtractSelector], FindSelector confirms that `data` has at least 4 bytes,
+// treating invalid inputs as not found.
+func (m MethodsBySelector) FindSelector(data []byte) (Selector, bool) {
+	if len(data) < SelectorByteLen {
+		return 0, false
+	}
+	return ExtractSelector(data), true
+}
+
+// A RevertError is an error that couples [ErrExecutionReverted] with the EVM
+// return buffer. TODO(arr4n): explain use with precompilegen contracts.
+type RevertError []byte
+
+// Error is equivalent to the respective method on [ErrExecutionReverted].
+func (e RevertError) Error() string { return ErrExecutionReverted.Error() }
+
+// Bytes returns the return buffer with which an EVM context reverted.
+func (e RevertError) Bytes() []byte { return []byte(e) }
+
+// Is returns true if `err` is directly == to `e` or if `err` is
+// [ErrExecutionReverted].
+func (e RevertError) Is(err error) bool {
+	return error(e) == err || err == ErrExecutionReverted
+}
