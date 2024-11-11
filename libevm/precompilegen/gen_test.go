@@ -16,57 +16,155 @@
 package main
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
 	"github.com/holiman/uint256"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"github.com/ava-labs/libevm/accounts/abi/bind"
 	"github.com/ava-labs/libevm/common"
+	"github.com/ava-labs/libevm/core/types"
 	"github.com/ava-labs/libevm/core/vm"
 	"github.com/ava-labs/libevm/crypto"
+	"github.com/ava-labs/libevm/eth/ethconfig"
+	"github.com/ava-labs/libevm/ethclient/simulated"
 	"github.com/ava-labs/libevm/libevm"
 	"github.com/ava-labs/libevm/libevm/ethtest"
 	"github.com/ava-labs/libevm/libevm/hookstest"
 	"github.com/ava-labs/libevm/libevm/precompilegen/testprecompile"
+	"github.com/ava-labs/libevm/node"
+	"github.com/ava-labs/libevm/params"
 )
 
-//go:generate solc -o ./ --overwrite --abi IPrecompile.sol
+//go:generate solc -o ./ --overwrite --abi --bin Test.sol
 //go:generate go run . -in IPrecompile.abi -out ./testprecompile/generated.go -package testprecompile
+//go:generate go run ../../cmd/abigen --abi PrecompileTest.abi --bin PrecompileTest.bin --pkg main --out ./abigen.gen_test.go --type PrecompileTest
 
 func TestGeneratedPrecompile(t *testing.T) {
-	addr := ethtest.NewPseudoRand(424242).Address()
+	rng := ethtest.NewPseudoRand(424242)
+	precompile := rng.Address()
 
-	hooks := hookstest.Stub{
+	hooks := &hookstest.Stub{
 		PrecompileOverrides: map[common.Address]libevm.PrecompiledContract{
-			addr: testprecompile.New(precompile{}),
+			precompile: testprecompile.New(contract{}),
 		},
 	}
-	hooks.Register(t)
+	extras := hookstest.Register(t, params.Extras[*hookstest.Stub, *hookstest.Stub]{
+		NewRules: func(_ *params.ChainConfig, r *params.Rules, _ *hookstest.Stub, blockNum *big.Int, isMerge bool, timestamp uint64) *hookstest.Stub {
+			r.IsCancun = true // enable PUSH0
+			return hooks
+		},
+	})
+
+	key := rng.UnsafePrivateKey(t)
+	eoa := crypto.PubkeyToAddress(key.PublicKey)
+
+	sim := simulated.NewBackend(
+		types.GenesisAlloc{
+			eoa: types.Account{
+				Balance: new(uint256.Int).Not(uint256.NewInt(0)).ToBig(),
+			},
+		},
+		func(nodeConf *node.Config, ethConf *ethconfig.Config) {
+			ethConf.Genesis.GasLimit = 30e6
+			extras.SetOnChainConfig(ethConf.Genesis.Config, hooks)
+		},
+	)
+	defer sim.Close()
+
+	txOpts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
+	require.NoError(t, err, "bind.NewKeyedTransactorWithChainID(..., 1337)")
+	txOpts.GasLimit = 1e6
+
+	client := sim.Client()
+	_, _, tester, err := DeployPrecompileTest(txOpts, client, precompile)
+	require.NoError(t, err, "DeployPrecompileTest(...)")
+	sim.Commit()
+	test := &PrecompileTestSession{
+		Contract:     tester,
+		TransactOpts: *txOpts,
+	}
+
+	tests := []struct {
+		transact        func() (*types.Transaction, error)
+		wantCalledEvent string
+	}{
+		{
+			transact: func() (*types.Transaction, error) {
+				return test.Echo(rng.BigUint64())
+			},
+			wantCalledEvent: "Echo(uint256)",
+		},
+		{
+			transact: func() (*types.Transaction, error) {
+				return test.Echo0("hello world")
+			},
+			wantCalledEvent: "Echo(string)",
+		},
+		{
+			transact: func() (*types.Transaction, error) {
+				return test.HashPacked(rng.BigUint64(), [2]byte{42, 42}, rng.Address())
+			},
+			wantCalledEvent: "HashPacked(...)",
+		},
+		{
+			transact: func() (*types.Transaction, error) {
+				return test.Self()
+			},
+			wantCalledEvent: "Self()",
+		},
+		{
+			transact: func() (*types.Transaction, error) {
+				return test.RevertWith(rng.Bytes(8))
+			},
+			wantCalledEvent: "RevertWith(...)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.wantCalledEvent, func(t *testing.T) {
+			tx, err := tt.transact()
+			require.NoError(t, err, "send tx")
+			sim.Commit()
+
+			rcpt, err := bind.WaitMined(context.Background(), client, tx)
+			require.NoError(t, err, "bind.WaitMined([tx just sent])")
+			require.Equalf(t, uint64(1), rcpt.Status, "%T.Status (i.e. transaction included)", rcpt)
+
+			require.Lenf(t, rcpt.Logs, 1, "%T.Logs", rcpt)
+			called, err := tester.ParseCalled(*rcpt.Logs[0])
+			require.NoErrorf(t, err, "%T.ParseCalled(...)", tester, err)
+			assert.Equal(t, tt.wantCalledEvent, called.Arg0, "function name emitted with `Called` event")
+		})
+	}
 }
 
-type precompile struct{}
+type contract struct{}
 
-var _ testprecompile.Contract = precompile{}
+var _ testprecompile.Contract = contract{}
 
-func (precompile) Fallback(env vm.PrecompileEnvironment, x []byte) ([]byte, uint64, error) {
-	return nil, 0, nil
+func (contract) Fallback(env vm.PrecompileEnvironment, callData []byte) ([]byte, uint64, error) {
+	return callData, 0, nil
 }
 
-func (precompile) Echo(env vm.PrecompileEnvironment, x *big.Int) (*big.Int, error) {
+func (contract) Echo(env vm.PrecompileEnvironment, x *big.Int) (*big.Int, error) {
 	return x, nil
 }
 
-func (precompile) Echo0(env vm.PrecompileEnvironment, x string) (string, error) {
+func (contract) Echo0(env vm.PrecompileEnvironment, x string) (string, error) {
 	return x, nil
 }
 
-func (precompile) Extract(env vm.PrecompileEnvironment, x struct {
+func (contract) Extract(env vm.PrecompileEnvironment, x struct {
 	Val *big.Int "json:\"val\""
 }) (*big.Int, error) {
 	return x.Val, nil
 }
 
-func (precompile) HashPacked(env vm.PrecompileEnvironment, x *big.Int, y [2]byte, z common.Address) (hash [32]byte, _ error) {
+func (contract) HashPacked(env vm.PrecompileEnvironment, x *big.Int, y [2]byte, z common.Address) (hash [32]byte, _ error) {
 	copy(
 		hash[:],
 		crypto.Keccak256(
@@ -78,10 +176,10 @@ func (precompile) HashPacked(env vm.PrecompileEnvironment, x *big.Int, y [2]byte
 	return hash, nil
 }
 
-func (precompile) RevertWith(env vm.PrecompileEnvironment, x []byte) error {
+func (contract) RevertWith(env vm.PrecompileEnvironment, x []byte) error {
 	return vm.RevertError(x)
 }
 
-func (precompile) Self(env vm.PrecompileEnvironment) (common.Address, error) {
+func (contract) Self(env vm.PrecompileEnvironment) (common.Address, error) {
 	return env.Addresses().Self, nil
 }

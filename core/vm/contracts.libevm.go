@@ -17,9 +17,9 @@
 package vm
 
 import (
+	"encoding/binary"
 	"fmt"
 	"math/big"
-	"unsafe"
 
 	"github.com/holiman/uint256"
 
@@ -207,13 +207,19 @@ const SelectorByteLen = 4
 
 // A Selector is an ABI function selector. It is a uint32 instead of a [4]byte
 // to allow for simpler hex literals.
-type Selector = uint32
+type Selector uint32
+
+// String returns a hex encoding of `s`.
+func (s Selector) String() string {
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, uint32(s))
+	return fmt.Sprintf("%#x", b)
+}
 
 // ExtractSelector returns the first 4 bytes of the slice as a Selector. It
 // assumes that its input is of sufficient length.
 func ExtractSelector(data []byte) Selector {
-	arr := (*[SelectorByteLen]byte)(data)
-	return *(*Selector)(unsafe.Pointer(arr)) //nolint:gosec // Valid use under [unsafe.Pointer] documentation: (1) Conversion of a *T1 to Pointer to *T2.
+	return Selector(binary.BigEndian.Uint32(data[:4]))
 }
 
 // MethodsBySelector maps 4-byte ABI selectors to the corresponding method
@@ -237,7 +243,11 @@ func (m MethodsBySelector) FindSelector(data []byte) (Selector, bool) {
 	if len(data) < SelectorByteLen {
 		return 0, false
 	}
-	return ExtractSelector(data), true
+	sel := ExtractSelector(data)
+	if _, ok := m[sel]; !ok {
+		return 0, false
+	}
+	return sel, true
 }
 
 // A RevertError is an error that couples [ErrExecutionReverted] with the EVM
