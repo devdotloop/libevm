@@ -59,4 +59,15 @@ contract PrecompileTest {
 
         emit Called("RevertWith(...)");
     }
+
+    function EchoingFallback(bytes memory input) external {
+        bytes memory data = abi.encodeWithSelector( /*non-existent selector*/ 0, input);
+        (bool ok, bytes memory ret) = address(precompile).staticcall(data);
+        assert(ok);
+        // Note equality with `data`, not `input` as the fallback echoes its
+        // entire calldata, which includes the non-matching selector.
+        assert(keccak256(ret) == keccak256(data));
+
+        emit Called("EchoingFallback(...)");
+    }
 }

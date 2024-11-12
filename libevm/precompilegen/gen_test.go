@@ -43,7 +43,16 @@ import (
 //go:generate go run . -in IPrecompile.abi -out ./testprecompile/generated.go -package testprecompile
 //go:generate go run ../../cmd/abigen --abi PrecompileTest.abi --bin PrecompileTest.bin --pkg main --out ./abigen.gen_test.go --type PrecompileTest
 
+func successfulTxReceipt(ctx context.Context, tb testing.TB, client bind.DeployBackend, tx *types.Transaction) *types.Receipt {
+	tb.Helper()
+	r, err := bind.WaitMined(ctx, client, tx)
+	require.NoErrorf(tb, err, "bind.WaitMined(tx %#x)", tx.Hash())
+	require.Equalf(tb, uint64(1), r.Status, "%T.Status", r)
+	return r
+}
+
 func TestGeneratedPrecompile(t *testing.T) {
+	ctx := context.Background()
 	rng := ethtest.NewPseudoRand(424242)
 	precompile := rng.Address()
 
@@ -77,14 +86,15 @@ func TestGeneratedPrecompile(t *testing.T) {
 
 	txOpts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 	require.NoError(t, err, "bind.NewKeyedTransactorWithChainID(..., 1337)")
-	txOpts.GasLimit = 1e6
+	txOpts.GasLimit = 30e6
 
 	client := sim.Client()
-	_, _, tester, err := DeployPrecompileTest(txOpts, client, precompile)
+	_, tx, test, err := DeployPrecompileTest(txOpts, client, precompile)
 	require.NoError(t, err, "DeployPrecompileTest(...)")
 	sim.Commit()
-	test := &PrecompileTestSession{
-		Contract:     tester,
+	successfulTxReceipt(ctx, t, client, tx)
+	suite := &PrecompileTestSession{
+		Contract:     test,
 		TransactOpts: *txOpts,
 	}
 
@@ -94,33 +104,39 @@ func TestGeneratedPrecompile(t *testing.T) {
 	}{
 		{
 			transact: func() (*types.Transaction, error) {
-				return test.Echo(rng.BigUint64())
+				return suite.Echo(rng.BigUint64())
 			},
 			wantCalledEvent: "Echo(uint256)",
 		},
 		{
 			transact: func() (*types.Transaction, error) {
-				return test.Echo0("hello world")
+				return suite.Echo0("hello world")
 			},
 			wantCalledEvent: "Echo(string)",
 		},
 		{
 			transact: func() (*types.Transaction, error) {
-				return test.HashPacked(rng.BigUint64(), [2]byte{42, 42}, rng.Address())
+				return suite.HashPacked(rng.BigUint64(), [2]byte{42, 42}, rng.Address())
 			},
 			wantCalledEvent: "HashPacked(...)",
 		},
 		{
 			transact: func() (*types.Transaction, error) {
-				return test.Self()
+				return suite.Self()
 			},
 			wantCalledEvent: "Self()",
 		},
 		{
 			transact: func() (*types.Transaction, error) {
-				return test.RevertWith(rng.Bytes(8))
+				return suite.RevertWith(rng.Bytes(8))
 			},
 			wantCalledEvent: "RevertWith(...)",
+		},
+		{
+			transact: func() (*types.Transaction, error) {
+				return suite.EchoingFallback(rng.Bytes(8))
+			},
+			wantCalledEvent: "EchoingFallback(...)",
 		},
 	}
 
@@ -130,13 +146,12 @@ func TestGeneratedPrecompile(t *testing.T) {
 			require.NoError(t, err, "send tx")
 			sim.Commit()
 
-			rcpt, err := bind.WaitMined(context.Background(), client, tx)
-			require.NoError(t, err, "bind.WaitMined([tx just sent])")
+			rcpt := successfulTxReceipt(ctx, t, client, tx)
 			require.Equalf(t, uint64(1), rcpt.Status, "%T.Status (i.e. transaction included)", rcpt)
 
 			require.Lenf(t, rcpt.Logs, 1, "%T.Logs", rcpt)
-			called, err := tester.ParseCalled(*rcpt.Logs[0])
-			require.NoErrorf(t, err, "%T.ParseCalled(...)", tester, err)
+			called, err := test.ParseCalled(*rcpt.Logs[0])
+			require.NoErrorf(t, err, "%T.ParseCalled(...)", test, err)
 			assert.Equal(t, tt.wantCalledEvent, called.Arg0, "function name emitted with `Called` event")
 		})
 	}
@@ -147,6 +162,8 @@ type contract struct{}
 var _ testprecompile.Contract = contract{}
 
 func (contract) Fallback(env vm.PrecompileEnvironment, callData []byte) ([]byte, uint64, error) {
+	// Note the test-suite assumption of the fallback's behaviour:
+	var _ = (*PrecompileTest).EchoingFallback
 	return callData, 0, nil
 }
 

@@ -94,7 +94,7 @@ func (t CallType) OpCode() OpCode {
 // regular types.
 func (args *evmCallArgs) run(p PrecompiledContract, input []byte, suppliedGas uint64) (ret []byte, remainingGas uint64, err error) {
 	if p, ok := p.(statefulPrecompile); ok {
-		return p(args.env(), input, suppliedGas)
+		return p(args.env(), common.CopyBytes(input), suppliedGas)
 	}
 	// Gas consumption for regular precompiles was already handled by the native
 	// RunPrecompiledContract(), which called this method.
