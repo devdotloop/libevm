@@ -116,6 +116,14 @@ func TestGeneratedPrecompile(t *testing.T) {
 		},
 		{
 			transact: func() (*types.Transaction, error) {
+				return suite.Extract(IPrecompileWrapper{
+					Val: rng.BigUint64(),
+				})
+			},
+			wantCalledEvent: "Extract(...)",
+		},
+		{
+			transact: func() (*types.Transaction, error) {
 				return suite.HashPacked(rng.BigUint64(), [2]byte{42, 42}, rng.Address())
 			},
 			wantCalledEvent: "HashPacked(...)",

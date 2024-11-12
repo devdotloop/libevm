@@ -41,6 +41,11 @@ contract PrecompileTest {
         emit Called("Echo(uint256)");
     }
 
+    function Extract(IPrecompile.Wrapper memory x) external {
+        assert(x.val == precompile.Extract(x));
+        emit Called("Extract(...)");
+    }
+
     function HashPacked(uint256 x, bytes2 y, address z) external {
         assert(precompile.HashPacked(x, y, z) == keccak256(abi.encodePacked(x, y, z)));
         emit Called("HashPacked(...)");
