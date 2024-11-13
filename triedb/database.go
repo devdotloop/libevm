@@ -113,7 +113,7 @@ func NewDatabase(diskdb ethdb.Database, config *Config) *Database {
 		db.backend = pathdb.New(diskdb, config.PathDB)
 	} else {
 		var resolver hashdb.ChildResolver
-		if config.IsVerkle {
+		if config.IsVerkle && config.DBOverride == nil {
 			// TODO define verkle resolver
 			log.Crit("Verkle node resolver is not defined")
 		} else {
