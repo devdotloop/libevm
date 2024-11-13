@@ -30,7 +30,6 @@ import (
 	"text/template"
 
 	"github.com/ava-labs/libevm/accounts/abi"
-	"github.com/ava-labs/libevm/core/vm"
 
 	_ "embed"
 )
@@ -134,10 +133,10 @@ func signature(m abi.Method) string {
 }
 
 // interfaceID returns the EIP-165 interface ID of the methods.
-func interfaceID(a abi.ABI) vm.Selector {
-	var id vm.Selector
+func interfaceID(a abi.ABI) abi.Selector {
+	var id abi.Selector
 	for _, m := range a.Methods {
-		id ^= vm.ExtractSelector(m.ID)
+		id ^= m.Selector()
 	}
 	return id
 }

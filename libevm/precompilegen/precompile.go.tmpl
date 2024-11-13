@@ -33,8 +33,8 @@ var (
     _ *big.Int = nil
     _ *common.Address = nil
 
-    methods vm.MethodsBySelector
-    dispatchers map[vm.Selector]methodDispatcher
+    methods abi.MethodsBySelector
+    dispatchers map[abi.Selector]methodDispatcher
 )
 
 const abiJSON = `{{.JSON}}`
@@ -44,10 +44,10 @@ func init() {
 	if err != nil {
 		panic(err.Error())
 	}
-    methods = vm.BySelector(parsed.Methods)
+    methods = parsed.MethodsBySelector()
 
     var d dispatch
-    dispatchers = map[vm.Selector]methodDispatcher{
+    dispatchers = map[abi.Selector]methodDispatcher{
         {{range methods .ABI}}{{hex .ID}}: d.{{.Name}},
         {{end}}
     }
@@ -88,7 +88,7 @@ func (dispatch) {{.Name}}(impl Contract, env vm.PrecompileEnvironment, input []b
     method := methods[{{hex .ID}}]
 
     {{if gt (len .Inputs) 0}}
-    inputs, err := method.Inputs.Unpack(input[vm.SelectorByteLen:])
+    inputs, err := method.Inputs.Unpack(input[abi.SelectorByteLen:])
     if err != nil {
         return nil, err
     }

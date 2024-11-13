@@ -17,13 +17,11 @@
 package vm
 
 import (
-	"encoding/binary"
 	"fmt"
 	"math/big"
 
 	"github.com/holiman/uint256"
 
-	"github.com/ava-labs/libevm/accounts/abi"
 	"github.com/ava-labs/libevm/common"
 	"github.com/ava-labs/libevm/core/types"
 	"github.com/ava-labs/libevm/libevm"
@@ -202,56 +200,10 @@ var (
 	}
 )
 
-// SelectorByteLen is the number of bytes in an ABI function selector.
-const SelectorByteLen = 4
-
-// A Selector is an ABI function selector. It is a uint32 instead of a [4]byte
-// to allow for simpler hex literals.
-type Selector uint32
-
-// String returns a hex encoding of `s`.
-func (s Selector) String() string {
-	b := make([]byte, 4)
-	binary.BigEndian.PutUint32(b, uint32(s))
-	return fmt.Sprintf("%#x", b)
-}
-
-// ExtractSelector returns the first 4 bytes of the slice as a Selector. It
-// assumes that its input is of sufficient length.
-func ExtractSelector(data []byte) Selector {
-	return Selector(binary.BigEndian.Uint32(data[:4]))
-}
-
-// MethodsBySelector maps 4-byte ABI selectors to the corresponding method
-// representation. The key MUST be equivalent to the value's [abi.Method.ID].
-type MethodsBySelector map[Selector]abi.Method
-
-// BySelector remaps the Methods to be keyed by their Selectors.
-func BySelector(methods map[string]abi.Method) MethodsBySelector {
-	ms := make(MethodsBySelector)
-	for _, m := range methods {
-		ms[ExtractSelector(m.ID)] = m
-	}
-	return ms
-}
-
-// FindSelector extracts the Selector from `data` and, if it exists in `m`,
-// returns it. The returned boolean functions as for regular map lookups. Unlike
-// [ExtractSelector], FindSelector confirms that `data` has at least 4 bytes,
-// treating invalid inputs as not found.
-func (m MethodsBySelector) FindSelector(data []byte) (Selector, bool) {
-	if len(data) < SelectorByteLen {
-		return 0, false
-	}
-	sel := ExtractSelector(data)
-	if _, ok := m[sel]; !ok {
-		return 0, false
-	}
-	return sel, true
-}
-
 // A RevertError is an error that couples [ErrExecutionReverted] with the EVM
-// return buffer. TODO(arr4n): explain use with precompilegen contracts.
+// return buffer. Although not used in vanilla geth, it can be returned by a
+// libevm `precompilegen` method implementation to circumvent regular argument
+// packing.
 type RevertError []byte
 
 // Error is equivalent to the respective method on [ErrExecutionReverted].

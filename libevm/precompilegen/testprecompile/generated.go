@@ -54,8 +54,8 @@ var (
 	_ *big.Int        = nil
 	_ *common.Address = nil
 
-	methods     vm.MethodsBySelector
-	dispatchers map[vm.Selector]methodDispatcher
+	methods     abi.MethodsBySelector
+	dispatchers map[abi.Selector]methodDispatcher
 )
 
 const abiJSON = `[{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"Echo","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"","type":"string"}],"name":"Echo","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"components":[{"internalType":"int256","name":"val","type":"int256"}],"internalType":"struct IPrecompile.Wrapper","name":"","type":"tuple"}],"name":"Extract","outputs":[{"internalType":"int256","name":"","type":"int256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"bytes2","name":"","type":"bytes2"},{"internalType":"address","name":"","type":"address"}],"name":"HashPacked","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"bytes","name":"","type":"bytes"}],"name":"RevertWith","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"Self","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"}]`
@@ -65,10 +65,10 @@ func init() {
 	if err != nil {
 		panic(err.Error())
 	}
-	methods = vm.BySelector(parsed.Methods)
+	methods = parsed.MethodsBySelector()
 
 	var d dispatch
-	dispatchers = map[vm.Selector]methodDispatcher{
+	dispatchers = map[abi.Selector]methodDispatcher{
 		0x34d6d9be: d.Echo,
 		0xdb84d7c0: d.Echo0,
 		0xad8108a4: d.Extract,
@@ -111,7 +111,7 @@ type dispatch struct{}
 func (dispatch) Echo(impl Contract, env vm.PrecompileEnvironment, input []byte) ([]byte, error) {
 	method := methods[0x34d6d9be]
 
-	inputs, err := method.Inputs.Unpack(input[vm.SelectorByteLen:])
+	inputs, err := method.Inputs.Unpack(input[abi.SelectorByteLen:])
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (dispatch) Echo(impl Contract, env vm.PrecompileEnvironment, input []byte) 
 func (dispatch) Echo0(impl Contract, env vm.PrecompileEnvironment, input []byte) ([]byte, error) {
 	method := methods[0xdb84d7c0]
 
-	inputs, err := method.Inputs.Unpack(input[vm.SelectorByteLen:])
+	inputs, err := method.Inputs.Unpack(input[abi.SelectorByteLen:])
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func (dispatch) Echo0(impl Contract, env vm.PrecompileEnvironment, input []byte)
 func (dispatch) Extract(impl Contract, env vm.PrecompileEnvironment, input []byte) ([]byte, error) {
 	method := methods[0xad8108a4]
 
-	inputs, err := method.Inputs.Unpack(input[vm.SelectorByteLen:])
+	inputs, err := method.Inputs.Unpack(input[abi.SelectorByteLen:])
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func (dispatch) Extract(impl Contract, env vm.PrecompileEnvironment, input []byt
 func (dispatch) HashPacked(impl Contract, env vm.PrecompileEnvironment, input []byte) ([]byte, error) {
 	method := methods[0xd7cc1f37]
 
-	inputs, err := method.Inputs.Unpack(input[vm.SelectorByteLen:])
+	inputs, err := method.Inputs.Unpack(input[abi.SelectorByteLen:])
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +191,7 @@ func (dispatch) HashPacked(impl Contract, env vm.PrecompileEnvironment, input []
 func (dispatch) RevertWith(impl Contract, env vm.PrecompileEnvironment, input []byte) ([]byte, error) {
 	method := methods[0xa93cbd97]
 
-	inputs, err := method.Inputs.Unpack(input[vm.SelectorByteLen:])
+	inputs, err := method.Inputs.Unpack(input[abi.SelectorByteLen:])
 	if err != nil {
 		return nil, err
 	}
