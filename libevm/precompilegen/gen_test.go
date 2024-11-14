@@ -159,7 +159,7 @@ func TestGeneratedPrecompile(t *testing.T) {
 
 			require.Lenf(t, rcpt.Logs, 1, "%T.Logs", rcpt)
 			called, err := test.ParseCalled(*rcpt.Logs[0])
-			require.NoErrorf(t, err, "%T.ParseCalled(...)", test, err)
+			require.NoErrorf(t, err, "%T.ParseCalled(...)", test)
 			assert.Equal(t, tt.wantCalledEvent, called.Arg0, "function name emitted with `Called` event")
 		})
 	}
