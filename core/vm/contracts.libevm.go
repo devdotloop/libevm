@@ -92,7 +92,7 @@ func (t CallType) OpCode() OpCode {
 // regular types.
 func (args *evmCallArgs) run(p PrecompiledContract, input []byte, suppliedGas uint64) (ret []byte, remainingGas uint64, err error) {
 	if p, ok := p.(statefulPrecompile); ok {
-		// `suppliedGas` is already held by the args.
+		// `suppliedGas` is already held by the args, and captured by `env()`.
 		return p.run(args.env(), input)
 	}
 	// Gas consumption for regular precompiles was already handled by the native
