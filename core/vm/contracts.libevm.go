@@ -92,7 +92,8 @@ func (t CallType) OpCode() OpCode {
 // regular types.
 func (args *evmCallArgs) run(p PrecompiledContract, input []byte, suppliedGas uint64) (ret []byte, remainingGas uint64, err error) {
 	if p, ok := p.(statefulPrecompile); ok {
-		return p(args.env(), input, suppliedGas)
+		// `suppliedGas` is already held by the args.
+		return p.run(args.env(), input)
 	}
 	// Gas consumption for regular precompiles was already handled by the native
 	// RunPrecompiledContract(), which called this method.
@@ -102,7 +103,11 @@ func (args *evmCallArgs) run(p PrecompiledContract, input []byte, suppliedGas ui
 
 // PrecompiledStatefulContract is the stateful equivalent of a
 // [PrecompiledContract].
-type PrecompiledStatefulContract func(env PrecompileEnvironment, input []byte, suppliedGas uint64) (ret []byte, remainingGas uint64, err error)
+//
+// Instead of receiving and returning gas limits, stateful precompiles use the
+// respective methods on [PrecompileEnvironment]. If a call to UseGas() returns
+// false, a stateful precompile SHOULD return [ErrOutOfGas].
+type PrecompiledStatefulContract func(env PrecompileEnvironment, input []byte) (ret []byte, err error)
 
 // NewStatefulPrecompile constructs a new PrecompiledContract that can be used
 // via an [EVM] instance but MUST NOT be called directly; a direct call to Run()
@@ -117,6 +122,11 @@ func NewStatefulPrecompile(run PrecompiledStatefulContract) PrecompiledContract 
 // methods are defined on this unexported type instead of directly on
 // [PrecompiledStatefulContract] to hide implementation details.
 type statefulPrecompile PrecompiledStatefulContract
+
+func (p statefulPrecompile) run(env *environment, input []byte) ([]byte, uint64, error) {
+	ret, err := p(env, input)
+	return ret, env.self.Gas, err
+}
 
 // RequiredGas always returns zero as this gas is consumed by native geth code
 // before the contract is run.
@@ -135,13 +145,18 @@ func (p statefulPrecompile) Run([]byte) ([]byte, error) {
 type PrecompileEnvironment interface {
 	ChainConfig() *params.ChainConfig
 	Rules() params.Rules
-	ReadOnly() bool
 	// StateDB will be non-nil i.f.f !ReadOnly().
 	StateDB() StateDB
 	// ReadOnlyState will always be non-nil.
 	ReadOnlyState() libevm.StateReader
-	Addresses() *libevm.AddressContext
+
 	IncomingCallType() CallType
+	Addresses() *libevm.AddressContext
+	ReadOnly() bool
+	// Equivalent to respective methods on [Contract].
+	Gas() uint64
+	UseGas(uint64) bool
+	Value() *uint256.Int
 
 	BlockHeader() (types.Header, error)
 	BlockNumber() *big.Int
@@ -150,7 +165,7 @@ type PrecompileEnvironment interface {
 	// Call is equivalent to [EVM.Call] except that the `caller` argument is
 	// removed and automatically determined according to the type of call that
 	// invoked the precompile.
-	Call(addr common.Address, input []byte, gas uint64, value *uint256.Int, _ ...CallOption) (ret []byte, gasRemaining uint64, _ error)
+	Call(addr common.Address, input []byte, gas uint64, value *uint256.Int, _ ...CallOption) (ret []byte, _ error)
 }
 
 func (args *evmCallArgs) env() *environment {

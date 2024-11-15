@@ -146,13 +146,16 @@ func TestNewStatefulPrecompile(t *testing.T) {
 	const gasLimit = 1e6
 	gasCost := rng.Uint64n(gasLimit)
 
-	run := func(env vm.PrecompileEnvironment, input []byte, suppliedGas uint64) ([]byte, uint64, error) {
+	run := func(env vm.PrecompileEnvironment, input []byte) ([]byte, error) {
 		if got, want := env.StateDB() != nil, !env.ReadOnly(); got != want {
-			return nil, 0, fmt.Errorf("PrecompileEnvironment().StateDB() must be non-nil i.f.f. not read-only; got non-nil? %t; want %t", got, want)
+			return nil, fmt.Errorf("PrecompileEnvironment().StateDB() must be non-nil i.f.f. not read-only; got non-nil? %t; want %t", got, want)
 		}
 		hdr, err := env.BlockHeader()
 		if err != nil {
-			return nil, 0, err
+			return nil, err
+		}
+		if !env.UseGas(gasCost) {
+			return nil, vm.ErrOutOfGas
 		}
 
 		out := &statefulPrecompileOutput{
@@ -166,7 +169,7 @@ func TestNewStatefulPrecompile(t *testing.T) {
 			Input:            input,
 			IncomingCallType: env.IncomingCallType(),
 		}
-		return out.Bytes(), suppliedGas - gasCost, nil
+		return out.Bytes(), nil
 	}
 	hooks := &hookstest.Stub{
 		PrecompileOverrides: map[common.Address]libevm.PrecompiledContract{
@@ -318,11 +321,11 @@ func TestInheritReadOnly(t *testing.T) {
 	hooks := &hookstest.Stub{
 		PrecompileOverrides: map[common.Address]libevm.PrecompiledContract{
 			precompile: vm.NewStatefulPrecompile(
-				func(env vm.PrecompileEnvironment, input []byte, suppliedGas uint64) ([]byte, uint64, error) {
+				func(env vm.PrecompileEnvironment, input []byte) ([]byte, error) {
 					if env.ReadOnly() {
-						return []byte{ifReadOnly}, suppliedGas, nil
+						return []byte{ifReadOnly}, nil
 					}
-					return []byte{ifNotReadOnly}, suppliedGas, nil
+					return []byte{ifNotReadOnly}, nil
 				},
 			),
 		},
@@ -535,21 +538,21 @@ func TestPrecompileMakeCall(t *testing.T) {
 
 	hooks := &hookstest.Stub{
 		PrecompileOverrides: map[common.Address]libevm.PrecompiledContract{
-			sut: vm.NewStatefulPrecompile(func(env vm.PrecompileEnvironment, input []byte, suppliedGas uint64) (ret []byte, remainingGas uint64, err error) {
+			sut: vm.NewStatefulPrecompile(func(env vm.PrecompileEnvironment, input []byte) (ret []byte, err error) {
 				var opts []vm.CallOption
 				if bytes.Equal(input, unsafeCallerProxyOptSentinel) {
 					opts = append(opts, vm.WithUNSAFECallerAddressProxying())
 				}
 				// We are ultimately testing env.Call(), hence why this is the SUT.
-				return env.Call(dest, precompileCallData, suppliedGas, uint256.NewInt(0), opts...)
+				return env.Call(dest, precompileCallData, env.Gas(), uint256.NewInt(0), opts...)
 			}),
-			dest: vm.NewStatefulPrecompile(func(env vm.PrecompileEnvironment, input []byte, suppliedGas uint64) (ret []byte, remainingGas uint64, err error) {
+			dest: vm.NewStatefulPrecompile(func(env vm.PrecompileEnvironment, input []byte) (ret []byte, err error) {
 				out := &statefulPrecompileOutput{
 					Addresses: env.Addresses(),
 					ReadOnly:  env.ReadOnly(),
 					Input:     input, // expected to be callData
 				}
-				return out.Bytes(), suppliedGas, nil
+				return out.Bytes(), nil
 			}),
 		},
 	}
@@ -696,8 +699,8 @@ func TestPrecompileCallWithTracer(t *testing.T) {
 
 	hooks := &hookstest.Stub{
 		PrecompileOverrides: map[common.Address]libevm.PrecompiledContract{
-			precompile: vm.NewStatefulPrecompile(func(env vm.PrecompileEnvironment, input []byte, suppliedGas uint64) (ret []byte, remainingGas uint64, err error) {
-				return env.Call(contract, nil, suppliedGas, uint256.NewInt(0))
+			precompile: vm.NewStatefulPrecompile(func(env vm.PrecompileEnvironment, input []byte) (ret []byte, err error) {
+				return env.Call(contract, nil, env.Gas(), uint256.NewInt(0))
 			}),
 		},
 	}
