@@ -206,6 +206,7 @@ func (dl *diskLayer) commit(bottom *diffLayer, force bool) (*diskLayer, error) {
 		rawdb.WriteStateID(dl.db.diskdb, dl.root, 0)
 	}
 	rawdb.WriteStateID(dl.db.diskdb, bottom.rootHash(), bottom.stateID())
+	fmt.Println("diskLayer commit", "root", bottom.rootHash(), "id", bottom.stateID())
 
 	// Construct a new disk layer by merging the nodes from the provided diff
 	// layer, and flush the content in disk layer if there are too many nodes

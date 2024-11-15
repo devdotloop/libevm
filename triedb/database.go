@@ -231,6 +231,14 @@ func (db *Database) Cap(limit common.StorageSize) error {
 	return hdb.Cap(limit)
 }
 
+func (db *Database) CapTree(root common.Hash, limit int) error {
+	pdb, ok := db.backend.(*pathdb.Database)
+	if !ok {
+		return errors.New("not supported")
+	}
+	return pdb.Cap(root, limit)
+}
+
 // Reference adds a new reference from a parent node to a child node. This function
 // is used to add reference between internal trie node and external node(e.g. storage
 // trie root), all internal trie nodes are referenced together by database itself.

@@ -258,6 +258,10 @@ func (db *Database) Commit(root common.Hash, report bool) error {
 	return db.tree.cap(root, 0)
 }
 
+func (db *Database) Cap(root common.Hash, maxDiffLayers int) error {
+	return db.tree.cap(root, maxDiffLayers)
+}
+
 // Disable deactivates the database and invalidates all available state layers
 // as stale to prevent access to the persistent state, which is in the syncing
 // stage.
