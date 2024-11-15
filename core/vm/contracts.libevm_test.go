@@ -39,6 +39,7 @@ import (
 	"github.com/ava-labs/libevm/libevm"
 	"github.com/ava-labs/libevm/libevm/ethtest"
 	"github.com/ava-labs/libevm/libevm/hookstest"
+	"github.com/ava-labs/libevm/libevm/legacy"
 	"github.com/ava-labs/libevm/params"
 )
 
@@ -146,16 +147,13 @@ func TestNewStatefulPrecompile(t *testing.T) {
 	const gasLimit = 1e6
 	gasCost := rng.Uint64n(gasLimit)
 
-	run := func(env vm.PrecompileEnvironment, input []byte) ([]byte, error) {
+	run := func(env vm.PrecompileEnvironment, input []byte, suppliedGas uint64) ([]byte, uint64, error) {
 		if got, want := env.StateDB() != nil, !env.ReadOnly(); got != want {
-			return nil, fmt.Errorf("PrecompileEnvironment().StateDB() must be non-nil i.f.f. not read-only; got non-nil? %t; want %t", got, want)
+			return nil, suppliedGas, fmt.Errorf("PrecompileEnvironment().StateDB() must be non-nil i.f.f. not read-only; got non-nil? %t; want %t", got, want)
 		}
 		hdr, err := env.BlockHeader()
 		if err != nil {
-			return nil, err
-		}
-		if !env.UseGas(gasCost) {
-			return nil, vm.ErrOutOfGas
+			return nil, suppliedGas, err
 		}
 
 		out := &statefulPrecompileOutput{
@@ -169,11 +167,15 @@ func TestNewStatefulPrecompile(t *testing.T) {
 			Input:            input,
 			IncomingCallType: env.IncomingCallType(),
 		}
-		return out.Bytes(), nil
+		return out.Bytes(), suppliedGas - gasCost, nil
 	}
 	hooks := &hookstest.Stub{
 		PrecompileOverrides: map[common.Address]libevm.PrecompiledContract{
-			precompile: vm.NewStatefulPrecompile(run),
+			precompile: vm.NewStatefulPrecompile(
+				// In production, the new function signature should be used, but
+				// this just exercises the converter.
+				legacy.PrecompiledStatefulContract(run).Upgrade(),
+			),
 		},
 	}
 	hooks.Register(t)
