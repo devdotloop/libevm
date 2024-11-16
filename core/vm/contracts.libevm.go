@@ -104,9 +104,9 @@ func (args *evmCallArgs) run(p PrecompiledContract, input []byte, suppliedGas ui
 // PrecompiledStatefulContract is the stateful equivalent of a
 // [PrecompiledContract].
 //
-// Instead of receiving and returning gas limits, stateful precompiles use the
-// respective methods on [PrecompileEnvironment]. If a call to UseGas() returns
-// false, a stateful precompile SHOULD return [ErrOutOfGas].
+// Instead of receiving and returning gas arguments, stateful precompiles use
+// the respective methods on [PrecompileEnvironment]. If a call to UseGas()
+// returns false, a stateful precompile SHOULD return [ErrOutOfGas].
 type PrecompiledStatefulContract func(env PrecompileEnvironment, input []byte) (ret []byte, err error)
 
 // NewStatefulPrecompile constructs a new PrecompiledContract that can be used
