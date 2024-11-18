@@ -742,6 +742,67 @@ func TestPrecompileCallWithTracer(t *testing.T) {
 	require.Equal(t, value, got[contract].Storage[zeroHash], "value loaded with SLOAD")
 }
 
+func TestPrecompileCreate(t *testing.T) {
+	returnCallerAddress := convertBytes[vm.OpCode, byte](
+		vm.CALLER, vm.PUSH0, vm.MSTORE,
+		vm.PUSH1, 20, vm.PUSH1, 12, vm.RETURN,
+	)
+
+	rng := ethtest.NewPseudoRand(142857)
+	precompile := rng.Address()
+	salt := rng.Uint256()
+	predicted := crypto.CreateAddress2(precompile, salt.Bytes32(), crypto.Keccak256(returnCallerAddress))
+
+	hooks := &hookstest.Stub{
+		PrecompileOverrides: map[common.Address]libevm.PrecompiledContract{
+			precompile: vm.NewStatefulPrecompile(func(env vm.PrecompileEnvironment, input []byte) ([]byte, error) {
+				// Note that contract deployment stores the buffer returned by
+				// the init bytecode, so env.Addresses().Self.
+				ret, contract, err := env.Create2(returnCallerAddress, env.Value(), salt)
+				if contract != predicted {
+					return nil, fmt.Errorf("deployed contract address %v does not match predicted %v", contract, predicted)
+				}
+				return ret, err
+			}),
+		},
+	}
+	hookstest.Register(t, params.Extras[*hookstest.Stub, *hookstest.Stub]{
+		NewRules: func(_ *params.ChainConfig, r *params.Rules, _ *hookstest.Stub, blockNum *big.Int, isMerge bool, timestamp uint64) *hookstest.Stub {
+			r.IsCancun = true // enable PUSH0
+			return hooks
+		},
+	})
+
+	state, evm := ethtest.NewZeroEVM(t)
+
+	eoa := rng.Address()
+	value := rng.Uint256()
+	state.SetBalance(eoa, value)
+	got, _, err := evm.Call(vm.AccountRef(eoa), precompile, nil, 30e6, value)
+	require.NoErrorf(t, err, "%T.Call([EOA], [precompile], ...)", evm)
+
+	t.Run("deployed code", func(t *testing.T) {
+		want := precompile.Bytes() // the "constructor" just deploy's its caller address as the code
+		assert.Equal(t, want, got, "returned by PrecompileEnvironment.Create2()")
+		assert.Equalf(t, want, state.GetCode(predicted), "via %T.GetCode(...)", state)
+	})
+
+	t.Run("account balances", func(t *testing.T) {
+		tests := []struct {
+			name string
+			addr common.Address
+			want *uint256.Int
+		}{
+			{"EOA", eoa, common.U2560},
+			{"precompile", precompile, common.U2560},
+			{"depoloyed contract", predicted, value},
+		}
+		for _, tt := range tests {
+			assert.Equalf(t, tt.want, state.GetBalance(tt.addr), "balance of %s", tt.name)
+		}
+	})
+}
+
 //nolint:testableexamples // Including output would only make the example more complicated and hide the true intent
 func ExamplePrecompileEnvironment() {
 	// To determine the actual caller of a precompile, as against the effective
