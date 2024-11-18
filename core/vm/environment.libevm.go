@@ -39,7 +39,7 @@ type environment struct {
 
 func (e *environment) Gas() uint64            { return e.self.Gas }
 func (e *environment) UseGas(gas uint64) bool { return e.self.UseGas(gas) }
-func (e *environment) Value() *uint256.Int    { return e.self.Value() }
+func (e *environment) Value() *uint256.Int    { return new(uint256.Int).Set(e.self.Value()) }
 
 func (e *environment) ChainConfig() *params.ChainConfig  { return e.evm.chainConfig }
 func (e *environment) Rules() params.Rules               { return e.evm.chainRules }
