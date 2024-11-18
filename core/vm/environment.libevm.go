@@ -146,6 +146,10 @@ func (e *environment) beforeNewCallFrame(typ CallType, gas uint64, value *uint25
 	}, nil
 }
 
+func (e *environment) afterNewCallFrame(returnGas uint64) error {
+	return e.refundGas(returnGas)
+}
+
 func (e *environment) Call(addr common.Address, input []byte, gas uint64, value *uint256.Int, opts ...CallOption) ([]byte, error) {
 	return e.callContract(Call, addr, input, gas, value, opts...)
 }
@@ -173,7 +177,7 @@ func (e *environment) callContract(typ CallType, addr common.Address, input []by
 	switch typ {
 	case Call:
 		ret, returnGas, err := e.evm.Call(caller, addr, input, gas, value)
-		if err := e.refundGas(returnGas); err != nil {
+		if err := e.afterNewCallFrame(returnGas); err != nil {
 			return nil, err
 		}
 		return ret, err
@@ -189,29 +193,34 @@ func (e *environment) callContract(typ CallType, addr common.Address, input []by
 	}
 }
 
-func (e *environment) Create(code []byte, gas uint64, value *uint256.Int) ([]byte, common.Address, error) {
-	return e.create(create, gas, value, func(caller ContractRef) ([]byte, common.Address, uint64, error) {
+func (e *environment) Create(code []byte, value *uint256.Int) ([]byte, common.Address, error) {
+	return e.create(create, value, func(caller ContractRef, gas uint64) ([]byte, common.Address, uint64, error) {
 		return e.evm.Create(caller, code, gas, value)
 	})
 }
 
-func (e *environment) Create2(code []byte, gas uint64, value, salt *uint256.Int) ([]byte, common.Address, error) {
-	return e.create(create2, gas, value, func(caller ContractRef) ([]byte, common.Address, uint64, error) {
+func (e *environment) Create2(code []byte, value, salt *uint256.Int) ([]byte, common.Address, error) {
+	return e.create(create2, value, func(caller ContractRef, gas uint64) ([]byte, common.Address, uint64, error) {
 		return e.evm.Create2(caller, code, gas, value, salt)
 	})
 }
 
-type creator func(ContractRef) ([]byte, common.Address, uint64, error)
+type creator func(ContractRef, uint64) ([]byte, common.Address, uint64, error)
 
-func (e *environment) create(typ CallType, gas uint64, value *uint256.Int, do creator) ([]byte, common.Address, error) {
+func (e *environment) create(typ CallType, value *uint256.Int, do creator) ([]byte, common.Address, error) {
+	gas := e.Gas()
+	if e.Rules().IsEIP150 {
+		gas -= gas / 64
+	}
+
 	caller, cleanup, err := e.beforeNewCallFrame(typ, gas, value)
 	if err != nil {
 		return nil, common.Address{}, err
 	}
 	defer cleanup()
 
-	ret, contract, returnGas, err := do(caller)
-	if err := e.refundGas(returnGas); err != nil {
+	ret, contract, returnGas, err := do(caller, gas)
+	if err := e.afterNewCallFrame(returnGas); err != nil {
 		return nil, common.Address{}, err
 	}
 	return ret, contract, err
