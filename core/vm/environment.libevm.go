@@ -100,48 +100,62 @@ func (e *environment) BlockHeader() (types.Header, error) {
 	return *hdr, nil
 }
 
+func (e *environment) beforeNewCallFrame(typ CallType, gas uint64, value *uint256.Int, opts ...CallOption) (ContractRef, func(), error) {
+	// Depth and read-only setting are handled by [EVMInterpreter.Run], which
+	// isn't used for precompiles, so we need to do it ourselves to maintain the
+	// expected invariants.
+	in := e.evm.interpreter
+	var deferred []func()
+
+	in.evm.depth++
+	deferred = append(deferred, func() { in.evm.depth-- })
+
+	if e.ReadOnly() && !in.readOnly { // i.e. the precompile was StaticCall()ed
+		in.readOnly = true
+		deferred = append(deferred, func() { in.readOnly = false })
+	}
+
+	var (
+		caller ContractRef = e.self
+		config libevmCallConfig
+	)
+	config.apply(opts...)
+	if config.proxyCallerAddressUNSAFE {
+		// Note that, in addition to being unsafe, this breaks an EVM
+		// assumption that the caller ContractRef is always a *Contract.
+		caller = AccountRef(e.self.CallerAddress)
+		if e.callType == DelegateCall {
+			// self was created with AsDelegate(), which means that
+			// CallerAddress was inherited.
+			caller = AccountRef(e.self.Address())
+		}
+	}
+
+	writes := (value != nil && !value.IsZero()) || typ == create || typ == create2
+	if in.readOnly && writes {
+		return nil, nil, ErrWriteProtection
+	}
+	if !e.UseGas(gas) {
+		return nil, nil, ErrOutOfGas
+	}
+
+	return caller, func() {
+		for _, fn := range deferred {
+			fn()
+		}
+	}, nil
+}
+
 func (e *environment) Call(addr common.Address, input []byte, gas uint64, value *uint256.Int, opts ...CallOption) ([]byte, error) {
 	return e.callContract(Call, addr, input, gas, value, opts...)
 }
 
 func (e *environment) callContract(typ CallType, addr common.Address, input []byte, gas uint64, value *uint256.Int, opts ...CallOption) (retData []byte, retErr error) {
-	// Depth and read-only setting are handled by [EVMInterpreter.Run], which
-	// isn't used for precompiles, so we need to do it ourselves to maintain the
-	// expected invariants.
-	in := e.evm.interpreter
-
-	in.evm.depth++
-	defer func() { in.evm.depth-- }()
-
-	if e.ReadOnly() && !in.readOnly { // i.e. the precompile was StaticCall()ed
-		in.readOnly = true
-		defer func() { in.readOnly = false }()
+	caller, cleanup, err := e.beforeNewCallFrame(typ, gas, value, opts...)
+	if err != nil {
+		return nil, err
 	}
-
-	var caller ContractRef = e.self
-	for _, o := range opts {
-		switch o := o.(type) {
-		case callOptUNSAFECallerAddressProxy:
-			// Note that, in addition to being unsafe, this breaks an EVM
-			// assumption that the caller ContractRef is always a *Contract.
-			caller = AccountRef(e.self.CallerAddress)
-			if e.callType == DelegateCall {
-				// self was created with AsDelegate(), which means that
-				// CallerAddress was inherited.
-				caller = AccountRef(e.self.Address())
-			}
-		case nil:
-		default:
-			return nil, fmt.Errorf("unsupported option %T", o)
-		}
-	}
-
-	if in.readOnly && value != nil && !value.IsZero() {
-		return nil, ErrWriteProtection
-	}
-	if !e.UseGas(gas) {
-		return nil, ErrOutOfGas
-	}
+	defer cleanup()
 
 	if t := e.evm.Config.Tracer; t != nil {
 		var bigVal *big.Int
@@ -173,4 +187,32 @@ func (e *environment) callContract(typ CallType, addr common.Address, input []by
 	default:
 		return nil, fmt.Errorf("unimplemented precompile call type %v", typ)
 	}
+}
+
+func (e *environment) Create(code []byte, gas uint64, value *uint256.Int) ([]byte, common.Address, error) {
+	return e.create(create, gas, value, func(caller ContractRef) ([]byte, common.Address, uint64, error) {
+		return e.evm.Create(caller, code, gas, value)
+	})
+}
+
+func (e *environment) Create2(code []byte, gas uint64, value, salt *uint256.Int) ([]byte, common.Address, error) {
+	return e.create(create2, gas, value, func(caller ContractRef) ([]byte, common.Address, uint64, error) {
+		return e.evm.Create2(caller, code, gas, value, salt)
+	})
+}
+
+type creator func(ContractRef) ([]byte, common.Address, uint64, error)
+
+func (e *environment) create(typ CallType, gas uint64, value *uint256.Int, do creator) ([]byte, common.Address, error) {
+	caller, cleanup, err := e.beforeNewCallFrame(typ, gas, value)
+	if err != nil {
+		return nil, common.Address{}, err
+	}
+	defer cleanup()
+
+	ret, contract, returnGas, err := do(caller)
+	if err := e.refundGas(returnGas); err != nil {
+		return nil, common.Address{}, err
+	}
+	return ret, contract, err
 }
