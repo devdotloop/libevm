@@ -45,11 +45,11 @@ type evmCallArgs struct {
 	callType CallType
 
 	// args:start
-	caller ContractRef
-	addr   common.Address
-	input  []byte
-	gas    uint64
-	value  *uint256.Int
+	caller       ContractRef
+	addr         common.Address
+	input        []byte
+	gasRemaining uint64
+	value        *uint256.Int
 	// args:end
 }
 
@@ -89,16 +89,17 @@ func (t CallType) OpCode() OpCode {
 }
 
 // run runs the [PrecompiledContract], differentiating between stateful and
-// regular types.
-func (args *evmCallArgs) run(p PrecompiledContract, input []byte, suppliedGas uint64) (ret []byte, remainingGas uint64, err error) {
-	if p, ok := p.(statefulPrecompile); ok {
-		// `suppliedGas` is already held by the args, and captured by `env()`.
-		return p.run(args.env(), input)
+// regular types, updating `gasRemaining` in the stateful case.
+func (args *evmCallArgs) run(p PrecompiledContract, input []byte) (ret []byte, err error) {
+	switch p := p.(type) {
+	default:
+		return p.Run(input)
+	case statefulPrecompile:
+		env := args.env()
+		ret, err := p(env, input)
+		args.gasRemaining = env.Gas()
+		return ret, err
 	}
-	// Gas consumption for regular precompiles was already handled by the native
-	// RunPrecompiledContract(), which called this method.
-	ret, err = p.Run(input)
-	return ret, suppliedGas, err
 }
 
 // PrecompiledStatefulContract is the stateful equivalent of a
@@ -122,11 +123,6 @@ func NewStatefulPrecompile(run PrecompiledStatefulContract) PrecompiledContract 
 // methods are defined on this unexported type instead of directly on
 // [PrecompiledStatefulContract] to hide implementation details.
 type statefulPrecompile PrecompiledStatefulContract
-
-func (p statefulPrecompile) run(env *environment, input []byte) ([]byte, uint64, error) {
-	ret, err := p(env, input)
-	return ret, env.self.Gas, err
-}
 
 // RequiredGas always returns zero as this gas is consumed by native geth code
 // before the contract is run.
@@ -189,7 +185,7 @@ func (args *evmCallArgs) env() *environment {
 
 	// This is equivalent to the `contract` variables created by evm.*Call*()
 	// methods, for non precompiles, to pass to [EVMInterpreter.Run].
-	contract := NewContract(args.caller, AccountRef(self), value, args.gas)
+	contract := NewContract(args.caller, AccountRef(self), value, args.gasRemaining)
 	if args.callType == DelegateCall {
 		contract = contract.AsDelegate()
 	}
