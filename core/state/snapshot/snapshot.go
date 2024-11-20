@@ -385,9 +385,9 @@ func (t *Tree) Update(blockRoot common.Hash, parentRoot common.Hash, destructs m
 // which may or may not overflow and cascade to disk. Since this last layer's
 // survival is only known *after* capping, we need to omit it from the count if
 // we want to ensure that *at least* the requested number of diff layers remain.
-func (t *Tree) Cap(root common.Hash, layers int) error {
+func (t *Tree) Cap(root common.Hash, layers int, opts ...LibEVMOption) error {
 	// Retrieve the head snapshot to cap from
-	snap := t.Snapshot(root)
+	snap := t.Snapshot(root, opts...)
 	if snap == nil {
 		return fmt.Errorf("snapshot [%#x] missing", root)
 	}
@@ -416,7 +416,7 @@ func (t *Tree) Cap(root common.Hash, layers int) error {
 		diff.lock.RUnlock()
 
 		// Replace the entire snapshot tree with the flat base
-		t.layers = map[common.Hash]snapshot{base.root: base}
+		t.updateLayersAfterCapZero(base, diff, opts)
 		return nil
 	}
 	persisted := t.cap(diff, layers)

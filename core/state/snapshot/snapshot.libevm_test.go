@@ -17,6 +17,7 @@
 package snapshot
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -150,7 +151,7 @@ const (
 //	│           └── E**
 //	└── B1
 //	    └── C*
-//	        └── D0
+//	        └── D1
 //	            └── E**
 func ambiguousTree(tb testing.TB) *Tree {
 	tb.Helper()
@@ -161,42 +162,182 @@ func ambiguousTree(tb testing.TB) *Tree {
 	update[byte](tb, tree, 0xC, 0xB0, CFromB0)
 	update[byte](tb, tree, 0xC, 0xB1, CFromB1)
 
-	update[byte](tb, tree, 0xD0, 0xC, DViaB0, WithNextNearestAncestor(asHash(0xb0)))
-	update[byte](tb, tree, 0xD1, 0xC, DViaB1, WithNextNearestAncestor(asHash(0xb1)))
+	update[byte](tb, tree, 0xD0, 0xC, DViaB0, WithNextNearestAncestor(asHash(0xB0)))
+	update[byte](tb, tree, 0xD1, 0xC, DViaB1, WithNextNearestAncestor(asHash(0xB1)))
 
 	update[byte](tb, tree, 0xE, 0xD0, EFromD0)
 	update[byte](tb, tree, 0xE, 0xD1, EFromD1)
 	return tree
 }
 
-func TestUpdateWithNextNearestAncestor(t *testing.T) {
+type pathTest struct {
+	assertMsg string
+	path      func(*Tree) []Snapshot
+	want      [][]string
+}
+
+func (tt *pathTest) assert(tb testing.TB, tr *Tree) {
+	assert.Equal(tb, asLabelSets(tt.want...), labelsOfPath(tb, tt.path(tr)), tt.assertMsg)
+}
+
+func TestAmbiguousTree(t *testing.T) {
 	tree := ambiguousTree(t)
+	tests := []pathTest{
+		{
+			path: func(tr *Tree) []Snapshot {
+				return tr.Snapshots(asHash(0xE), 999, false, WithNextNearestAncestor(asHash(0xD0)))
+			},
+			want: [][]string{{EFromD0}, {DViaB0}, {CFromB0}, {B0}, {A}, {}},
+		},
+		{
+			path: func(tr *Tree) []Snapshot {
+				return tr.Snapshots(asHash(0xE), 999, false, WithNextNearestAncestor(asHash(0xD1)))
+			},
+			want: [][]string{{EFromD1}, {DViaB1}, {CFromB1}, {B1}, {A}, {}},
+		},
+	}
+	for _, tt := range tests {
+		tt.assert(t, tree)
+	}
+}
+
+func TestCapZero(t *testing.T) {
+	// All tests use [ambiguousTree]; see its comment for the layer structure.
 	tests := []struct {
-		root byte
-		want [][]string
+		name      string
+		root      common.Hash
+		opts      []LibEVMOption
+		pathTests []pathTest
 	}{
 		{
-			root: 0xD0,
-			want: [][]string{
-				{DViaB0},
-				{CFromB0},
-				{B0},
-				{A},
+			root: asHash(0xA),
+			opts: []LibEVMOption{PreserveDescendantsOnCapZero()},
+			pathTests: []pathTest{
+				{
+					path: func(tr *Tree) []Snapshot {
+						// Including the disk demonstrates that the capped layer has
+						// been flattened into it.
+						return tr.Snapshots(asHash(0xE), 999, false /*nodisk*/, WithNextNearestAncestor(asHash(0xD0)))
+					},
+					want: [][]string{{EFromD0}, {DViaB0}, {CFromB0}, {B0}, {A}},
+				},
+				{
+					path: func(tr *Tree) []Snapshot {
+						return tr.Snapshots(asHash(0xE), 999, false, WithNextNearestAncestor(asHash(0xD1)))
+					},
+					want: [][]string{{EFromD1}, {DViaB1}, {CFromB1}, {B1}, {A}},
+				},
 			},
 		},
 		{
-			root: 0xD1,
-			want: [][]string{
-				{DViaB1},
-				{CFromB1},
-				{B1},
-				{A},
+			root: asHash(0xC),
+			opts: []LibEVMOption{
+				WithNextNearestAncestor(asHash(0xB0)),
+				PreserveDescendantsOnCapZero(),
+			},
+			pathTests: []pathTest{
+				{
+					path: func(tr *Tree) []Snapshot {
+						return tr.Snapshots(asHash(0xE), 999, false, WithNextNearestAncestor(asHash(0xD0)))
+					},
+					want: [][]string{
+						{EFromD0},
+						{DViaB0},
+						{CFromB0, B0, A}, // flattened to disk
+					},
+				},
+				{
+					path: func(tr *Tree) []Snapshot {
+						return tr.Snapshots(asHash(0xE), 999, false, WithNextNearestAncestor(asHash(0xD1)))
+					},
+					want: [][]string{ /* E from D1 no longer exists */ },
+				},
 			},
 		},
 	}
 
 	for _, tt := range tests {
-		layers := tree.Snapshots(asHash(tt.root), 999, true)
-		assert.Equalf(t, asLabelSets(tt.want...), labelsOfPath(t, layers), "Snapshots from %#x down", tt.root)
+		t.Run(tt.name, func(t *testing.T) {
+			tree := ambiguousTree(t)
+			require.NoError(t, tree.Cap(tt.root, 0, tt.opts...), "%T.Cap(%v, 0, ...)", tree, tt.root)
+			for _, pt := range tt.pathTests {
+				pt.assert(t, tree)
+			}
+		})
+	}
+}
+
+func TestIsDescendantOf(t *testing.T) {
+	tree := ambiguousTree(t)
+
+	type test struct {
+		name           string
+		snap, ancestor Snapshot
+		want           bool
+	}
+
+	tests := []test{
+		{
+			name:     "nil snap",
+			ancestor: tree.Snapshot(asHash(0xA)),
+			want:     false,
+		},
+		{
+			name: "nil ancestor",
+			snap: tree.Snapshot(asHash(0xA)),
+			want: false,
+		},
+		{
+			name:     "D1 is descendant of B1",
+			snap:     tree.Snapshot(asHash(0xD1)),
+			ancestor: tree.Snapshot(asHash(0xB1)),
+			want:     true,
+		},
+		{
+			name:     "D1 is not descendant of B0",
+			snap:     tree.Snapshot(asHash(0xD1)),
+			ancestor: tree.Snapshot(asHash(0xB0)),
+			want:     false,
+		},
+		{
+			name:     "B1 is ancestor of D1",
+			snap:     tree.Snapshot(asHash(0xB1)),
+			ancestor: tree.Snapshot(asHash(0xD1)),
+			want:     false,
+		},
+		{
+			name:     "E via D0 is descendant of B0",
+			snap:     tree.Snapshot(asHash(0xE), WithNextNearestAncestor(asHash(0xD0))),
+			ancestor: tree.Snapshot(asHash(0xB0)),
+			want:     true,
+		},
+		{
+			name:     "E via D1 is not descendant of B0",
+			snap:     tree.Snapshot(asHash(0xE), WithNextNearestAncestor(asHash(0xD1))),
+			ancestor: tree.Snapshot(asHash(0xB0)),
+			want:     false,
+		},
+	}
+
+	disk := tree.disklayer()
+	for _, snaps := range tree.ancestry {
+		for _, s := range snaps {
+			diff, ok := s.(*diffLayer)
+			if !ok {
+				continue
+			}
+			tests = append(tests, test{
+				name:     fmt.Sprintf("%s is descendant of disk", labelsOf(t, diff)),
+				snap:     diff,
+				ancestor: disk,
+				want:     true,
+			})
+		}
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isDescendendantOf(tt.snap, tt.ancestor))
+		})
 	}
 }

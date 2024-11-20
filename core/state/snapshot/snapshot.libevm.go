@@ -24,13 +24,16 @@ type LibEVMOption interface {
 }
 
 type libevmConfig struct {
-	ancestorRoot *common.Hash
+	ancestorRoot                 *common.Hash
+	preserveDescendantsOnCapZero bool
 }
 
-func (c *libevmConfig) apply(opts ...LibEVMOption) {
+func asLibEVMConfig(opts []LibEVMOption) *libevmConfig {
+	c := new(libevmConfig)
 	for _, o := range opts {
 		o.apply(c)
 	}
+	return c
 }
 
 type libevmFuncOpt func(*libevmConfig)
@@ -74,14 +77,76 @@ func (t *Tree) recordAncestryWhenLocked(snap snapshot) {
 // recent snapshot with the given root is returned, in keeping with default geth
 // behaviour.
 func (t *Tree) layerWhenLocked(root common.Hash, opts ...LibEVMOption) snapshot {
-	var c libevmConfig
-	c.apply(opts...)
-
 	if disk, ok := t.layers[root].(*diskLayer); ok {
 		return disk
 	}
-	if c.ancestorRoot == nil {
-		return t.layers[root]
+	if a := asLibEVMConfig(opts).ancestorRoot; a != nil {
+		return t.ancestry[root][*a]
 	}
-	return t.ancestry[root][*c.ancestorRoot]
+	return t.layers[root]
+}
+
+// PreserveDescendantsOnCapZero signals to [Tree.Cap], if capping to zero layers
+// (i.e. flattening), that descendants of the flattened layer must be kept.
+// Without this option, the entire tree is replaced with the new base (disk)
+// layer.
+func PreserveDescendantsOnCapZero() LibEVMOption {
+	return libevmFuncOpt(func(c *libevmConfig) {
+		c.preserveDescendantsOnCapZero = true
+	})
+}
+
+func (t *Tree) updateLayersAfterCapZero(base *diskLayer, flattened *diffLayer, opts []LibEVMOption) {
+	// Original geth behaviour
+	t.layers = map[common.Hash]snapshot{base.root: base}
+	t.ancestry = nil
+	if !asLibEVMConfig(opts).preserveDescendantsOnCapZero {
+		return
+	}
+
+	// TODO(arr4n): this isn't the most efficient algorithm as it requires
+	// every descendant to traverse up to `flattened`.
+	var descendants []*diffLayer
+	for _, snaps := range t.ancestry {
+		for _, s := range snaps {
+			if isDescendendantOf(s, flattened) {
+				descendants = append(descendants, s.(*diffLayer)) //nolint:forcetypeassert // Guaranteed by being a descendant of something
+			}
+		}
+	}
+
+	for _, snap := range descendants {
+		snap.origin = base
+		if areSameSnapshot(snap.Parent(), flattened) {
+			snap.parent = base
+		}
+
+		t.layers[snap.Root()] = snap
+		t.recordAncestryWhenLocked(snap)
+	}
+}
+
+func isDescendendantOf(snap, ancestor Snapshot) bool {
+	for {
+		if _, isDisk := snap.(*diskLayer); isDisk || snap == nil || ancestor == nil {
+			return false
+		}
+		snap = snap.(snapshot).Parent()
+		if areSameSnapshot(snap, ancestor) {
+			return true
+		}
+	}
+}
+
+func areSameSnapshot(a, b Snapshot) bool {
+	switch a := a.(type) {
+	case *diskLayer:
+		b, ok := b.(*diskLayer)
+		return ok && a == b
+
+	case *diffLayer:
+		b, ok := b.(*diffLayer)
+		return ok && a == b
+	}
+	return false
 }
