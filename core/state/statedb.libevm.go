@@ -21,6 +21,7 @@ import (
 
 	"github.com/ava-labs/libevm/common"
 	"github.com/ava-labs/libevm/core/state/snapshot"
+	"github.com/ava-labs/libevm/libevm/stateconf"
 )
 
 // SnapshotTree mirrors the functionality of a [snapshot.Tree], allowing for
@@ -35,6 +36,7 @@ type SnapshotTree interface {
 		destructs map[common.Hash]struct{},
 		accounts map[common.Hash][]byte,
 		storage map[common.Hash]map[common.Hash][]byte,
+		opts ...stateconf.SnapshotUpdateOption,
 	) error
 }
 
