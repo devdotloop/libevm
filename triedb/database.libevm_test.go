@@ -14,12 +14,41 @@
 // along with the go-ethereum library. If not, see
 // <http://www.gnu.org/licenses/>.
 
-package core
+package triedb
 
-// canExecuteTransaction is a convenience wrapper for calling the
-// [params.RulesHooks.CanExecuteTransaction] hook.
-func (st *StateTransition) canExecuteTransaction() error {
-	bCtx := st.evm.Context
-	rules := st.evm.ChainConfig().Rules(bCtx.BlockNumber, bCtx.Random != nil, bCtx.Time)
-	return rules.Hooks().CanExecuteTransaction(st.msg.From, st.msg.To, st.state)
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/ava-labs/libevm/common"
+	"github.com/ava-labs/libevm/ethdb"
+	"github.com/ava-labs/libevm/triedb/database"
+)
+
+func TestDBOverride(t *testing.T) {
+	config := &Config{
+		DBOverride: func(d ethdb.Database, c *Config) DBOverride {
+			return override{}
+		},
+	}
+
+	db := NewDatabase(nil, config)
+	got, err := db.Reader(common.Hash{})
+	require.NoError(t, err)
+	if _, ok := got.(reader); !ok {
+		t.Errorf("with non-nil %T.DBOverride, %T.Reader() got concrete type %T; want %T", config, db, got, reader{})
+	}
+}
+
+type override struct {
+	PathDB
+}
+
+type reader struct {
+	database.Reader
+}
+
+func (override) Reader(common.Hash) (database.Reader, error) {
+	return reader{}, nil
 }

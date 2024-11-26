@@ -14,12 +14,29 @@
 // along with the go-ethereum library. If not, see
 // <http://www.gnu.org/licenses/>.
 
-package core
+// Package options provides a generic mechanism for defining configuration of
+// arbitrary types.
+package options
 
-// canExecuteTransaction is a convenience wrapper for calling the
-// [params.RulesHooks.CanExecuteTransaction] hook.
-func (st *StateTransition) canExecuteTransaction() error {
-	bCtx := st.evm.Context
-	rules := st.evm.ChainConfig().Rules(bCtx.BlockNumber, bCtx.Random != nil, bCtx.Time)
-	return rules.Hooks().CanExecuteTransaction(st.msg.From, st.msg.To, st.state)
+// An Option configures values of arbitrary type.
+type Option[T any] interface {
+	Configure(*T)
 }
+
+// As applies Options to a zero-value T, which it then returns.
+func As[T any](opts ...Option[T]) *T {
+	var t T
+	for _, o := range opts {
+		o.Configure(&t)
+	}
+	return &t
+}
+
+// A Func converts a function into an [Option], using itself as the Configure
+// method.
+type Func[T any] func(*T)
+
+var _ Option[struct{}] = Func[struct{}](nil)
+
+// Configure implements the [Option] interface.
+func (f Func[T]) Configure(t *T) { f(t) }
