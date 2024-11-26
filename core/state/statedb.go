@@ -63,7 +63,7 @@ type StateDB struct {
 	prefetcher *triePrefetcher
 	trie       Trie
 	hasher     crypto.KeccakState
-	snaps      *snapshot.Tree    // Nil if snapshot is not available
+	snaps      SnapshotTree      // Nil if snapshot is not available
 	snap       snapshot.Snapshot // Nil if snapshot is not available
 
 	// originalRoot is the pre-state root, before any changes were made.
@@ -141,7 +141,8 @@ type StateDB struct {
 }
 
 // New creates a new state from a given trie.
-func New(root common.Hash, db Database, snaps *snapshot.Tree) (*StateDB, error) {
+func New(root common.Hash, db Database, snaps SnapshotTree) (*StateDB, error) {
+	snaps = clearTypedNilPointer(snaps)
 	tr, err := db.OpenTrie(root)
 	if err != nil {
 		return nil, err
