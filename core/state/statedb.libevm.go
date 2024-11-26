@@ -25,7 +25,8 @@ import (
 )
 
 // SnapshotTree mirrors the functionality of a [snapshot.Tree], allowing for
-// drop-in replacements.
+// drop-in replacements. This is intended as a temporary feature as a workaround
+// until a standard Tree can be used.
 type SnapshotTree interface {
 	Cap(common.Hash, int) error
 	Snapshot(common.Hash) snapshot.Snapshot

@@ -20,7 +20,8 @@ package stateconf
 import "github.com/ava-labs/libevm/libevm/options"
 
 // A SnapshotUpdateOption configures the behaviour of
-// state.SnapshotTree.Update() implementations.
+// state.SnapshotTree.Update() implementations. This will be removed along with
+// state.SnapshotTree.
 type SnapshotUpdateOption = options.Option[snapshotUpdateConfig]
 
 type snapshotUpdateConfig struct {
