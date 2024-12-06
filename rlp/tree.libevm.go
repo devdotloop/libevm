@@ -26,7 +26,8 @@ import (
 // root node. Nodes contain only their unpacked values, not their length- and
 // type-denoting tags.
 type ItemNode interface {
-	rlpItem()
+	headerAndDataLengths() (uint64, uint64)
+	Encoder
 }
 
 var _ = []ItemNode{ListNode(nil), StringNode(nil), ByteNode(0)}
@@ -44,10 +45,6 @@ type StringNode []byte
 // [ParseTree] will only return an ByteNode if the value is in the range [0,127]
 // but an ByteNode MAY be outside of this range for the purpose of re-encoding.
 type ByteNode byte
-
-func (ListNode) rlpItem()   {}
-func (StringNode) rlpItem() {}
-func (ByteNode) rlpItem()   {}
 
 var (
 	errConcatenated  = errors.New("concatenated items outside of list")

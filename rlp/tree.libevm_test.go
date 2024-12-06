@@ -18,6 +18,7 @@ package rlp
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"math/rand"
 	"runtime"
@@ -25,10 +26,11 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestParseTreeNoErrorOnUpstreamTests(t *testing.T) {
+func TestTreeRoundTripOnUpstream(t *testing.T) {
 	for _, tt := range encTests {
 		t.Run("", func(t *testing.T) {
 			if tt.error != "" {
@@ -47,24 +49,28 @@ func TestParseTreeNoErrorOnUpstreamTests(t *testing.T) {
 			buf, err := hex.DecodeString(tt.output)
 			require.NoErrorf(t, err, "hex.DecodeString(%T.output)", tt)
 
-			_, err = ParseTree(buf)
+			node, err := ParseTree(buf)
 			require.NoErrorf(t, err, "ParseTree(%T => %#x)", tt.val, buf)
+
+			var got bytes.Buffer
+			require.NoError(t, node.EncodeRLP(&got))
+			assert.Equal(t, buf, got.Bytes())
 		})
 	}
 }
 
-func TestParseTree(t *testing.T) {
+func TestTreeRoundTripFuzzed(t *testing.T) {
 	t.Parallel()
 
 	type test struct {
 		fuzzed   bool
 		fuzzSeed int64
 		value    any
-		want     ItemNode
+		node     ItemNode
 	}
 	tests := []test{{
 		value: []byte(nil),
-		want:  StringNode{},
+		node:  StringNode{},
 	}}
 
 	for i := 0; i < 3e3; i++ {
@@ -75,7 +81,7 @@ func TestParseTree(t *testing.T) {
 			fuzzed:   true,
 			fuzzSeed: seed,
 			value:    val,
-			want:     node,
+			node:     node,
 		})
 	}
 
@@ -91,16 +97,25 @@ func TestParseTree(t *testing.T) {
 				t.Logf("Fuzzing seed: %d", tt.fuzzSeed)
 			}
 
-			buf := bytes.NewBuffer(nil)
-			require.NoError(t, Encode(buf, tt.value))
-			t.Logf("RLP encoding of %T: %#x\nValue: %x", tt.value, buf.Bytes(), tt.value)
+			rlp, err := EncodeToBytes(tt.value)
+			require.NoError(t, err, "EncodeToBytes([concrete value])")
+			t.Logf("RLP encoding of %T: %#x\nValue: %x", tt.value, rlp, tt.value)
 
-			got, err := ParseTree(buf.Bytes())
-			require.NoError(t, err)
+			t.Run("ParseTree", func(t *testing.T) {
+				got, err := ParseTree(rlp)
+				require.NoError(t, err, "ParseTree()")
+				if diff := cmp.Diff(tt.node, got, cmpopts.EquateEmpty()); diff != "" {
+					t.Errorf("ParseTree() diff (-want +got): \n%s", diff)
+				}
+			})
 
-			if diff := cmp.Diff(tt.want, got, cmpopts.EquateEmpty()); diff != "" {
-				t.Errorf("%s", diff)
-			}
+			t.Run("ItemNode.EncodeRLP()", func(t *testing.T) {
+				got, err := EncodeToBytes(tt.node)
+				require.NoErrorf(t, err, "EncodeToBytes(..., %T)", tt.node)
+				if diff := cmp.Diff(rlp, got); diff != "" {
+					t.Errorf("diff -Encode([concrete values]) +Encode(%T):\n%s", tt.node, diff)
+				}
+			})
 		})
 	}
 }
@@ -141,4 +156,78 @@ func randomItemNode(rng *rand.Rand) (any, ItemNode) {
 		}
 		return vals, list
 	}
+}
+
+func TestEncodeItemNote(t *testing.T) {
+	encodeToHex := func(v any) string {
+		b, err := EncodeToBytes(v)
+		require.NoError(t, err)
+		return hex.EncodeToString(b)
+	}
+	makeBytes := func(n int) []byte {
+		return append([]byte{1}, make([]byte, n-1)...)
+	}
+
+	tests := []struct {
+		node    ItemNode
+		wantHex string
+	}{
+		{ByteNode(0), "00"},
+		{ByteNode(1), "01"},
+		{ByteNode(127), "7f"},
+		{ByteNode(128), "8180"},
+		{ByteNode(255), "81ff"},
+		{StringNode{}, "80"},
+		{StringNode{0}, "8100"},
+		{StringNode{1, 2, 3, 4, 5, 6, 7, 8, 9}, "89010203040506070809"},
+		{
+			StringNode(makeBytes(55)),
+			encodeToHex(makeBytes(55)),
+		},
+		{
+			StringNode(makeBytes(56)),
+			encodeToHex(makeBytes(56)),
+		},
+	}
+
+	for _, tt := range tests {
+		var got bytes.Buffer
+		require.NoError(t, tt.node.EncodeRLP(&got))
+		assert.Equal(t, unhex(tt.wantHex), got.Bytes())
+	}
+}
+
+func TestByteLength(t *testing.T) {
+	tests := []struct{ n, want uint64 }{
+		{0, 0},
+		{1<<8 - 1, 1},
+		{1 << 8, 2},
+		{1<<16 - 1, 2},
+		{1 << 16, 3},
+		{1<<24 - 1, 3},
+		{1 << 24, 4},
+	}
+	for _, tt := range tests {
+		assert.Equalf(t, tt.want, byteLength(tt.n), "byteLength(%d)", tt.n)
+	}
+}
+
+func TestBigEndian(t *testing.T) {
+	assert.Empty(t, bigEndian(0), "bigEndian(0)")
+
+	rng := rand.New(rand.NewSource(42)) //nolint:gosec // Reproducible fuzzing required
+
+	for i := 1; i <= 8; i++ {
+		prefix := make([]byte, 8-i)
+		for j := 0; j < 100; j++ {
+			suffix := make([]byte, i)
+			for suffix[0] == 0 {
+				rng.Read(suffix) //nolint:gosec // Documented as always returning nil error
+			}
+
+			n := binary.BigEndian.Uint64(append(prefix, suffix...))
+			assert.Equalf(t, suffix, bigEndian(n), "bigEndian(%d)", n)
+		}
+	}
+
 }
