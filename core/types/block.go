@@ -67,7 +67,7 @@ var RegisteredHeaderSerializer HeaderSerializer
 
 // XXX: JSON marshalling should be handled as well.
 //go:generate go run github.com/fjl/gencodec -type Header -field-override headerMarshaling -out gen_header_json.go
-//go:generate go run ../../rlp/rlpgen -type Header_ -out gen_header_rlp.go
+//go:generate go run ../../rlp/rlpgen -type HeaderWithExtraPayload -out gen_header_rlp.go
 
 // Header represents a block header in the Ethereum blockchain.
 type Header HeaderWithExtraPayload
