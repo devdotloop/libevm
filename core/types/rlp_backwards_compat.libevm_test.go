@@ -112,4 +112,10 @@ func TestHeaderRLPBackwardsCompatibility(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, wantRLP, got)
 	})
+
+	t.Run("DecodeRLP", func(t *testing.T) {
+		got := new(Header)
+		require.NoError(t, rlp.DecodeBytes(wantRLP, got))
+		assert.Equal(t, hdr, got)
+	})
 }

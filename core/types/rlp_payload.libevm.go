@@ -17,12 +17,14 @@
 package types
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 
 	"github.com/ava-labs/libevm/libevm/pseudo"
 	"github.com/ava-labs/libevm/libevm/testonly"
 	"github.com/ava-labs/libevm/rlp"
+	"golang.org/x/sync/errgroup"
 )
 
 // RegisterExtras registers the type `SA` to be carried as an extra payload in
@@ -233,4 +235,81 @@ func (e *StateAccountExtra) Format(s fmt.State, verb rune) {
 		return
 	}
 	_, _ = s.Write([]byte(out))
+}
+
+func (h *Header) EncodeRLP(w io.Writer) error {
+	// TODO(arr4n) if no extra payloads have been registered then return
+	// h.genEncodeRLP(w) immediately.
+
+	var buf bytes.Buffer
+	if err := h.genEncodeRLP(&buf); err != nil {
+		return err
+	}
+
+	tree, err := rlp.ParseTree(buf.Bytes())
+	if err != nil {
+		return err
+	}
+	list, ok := tree.(rlp.ListNode)
+	if !ok {
+		return fmt.Errorf("rlp.ParseTree(%T RLP) got %T; expecting %T", h, tree, list)
+	}
+
+	// TODO(arr4n) call a list-modifying hook here.
+	//
+	// - Both coreth and subnet-evm remove WithdrawalsHash, which is list[16].
+	//   What they include is, however, different.
+	//
+	// - Special attention needs to be paid to the existence (or not) of
+	//   optional fields so raw slice indexing MUST NOT be performed.
+	//
+	// - The hook MUST be provided with the concrete type wrapped by
+	//   [Header.extra] and probably SHOULD receive the Header itself.
+	//
+	// - It is likely that the easiest way to implement specific hooks is for
+	//   them to RLP-encode the extra payload itself, parse its tree, and insert
+	//   the nodes where appropriate.
+
+	return list.EncodeRLP(w)
+}
+
+func (h *Header) DecodeRLP(s *rlp.Stream) error {
+	// TODO(arr4n) if no extra payloads have been registered then return
+	// s.Decode(hh) immediately. See `hh` at the end of the method.
+
+	raw, err := s.Raw()
+	if err != nil {
+		return err
+	}
+
+	tree, err := rlp.ParseTree(raw)
+	if err != nil {
+		return err
+	}
+	list, ok := tree.(rlp.ListNode)
+	if !ok {
+		return fmt.Errorf("rlp.ParseTree(%T RLP) got %T; expecting %T", h, tree, list)
+	}
+
+	// TODO(arr4n) call a hook that inverts the modifier of [Header.EncodeRLP].
+
+	// It's not safe to reuse the `raw` slice's memory because that's what is
+	// backing `list`, so we pipe directly from the tree encoder into the header
+	// decoder.
+	r, w := io.Pipe()
+	defer r.Close()
+	var g errgroup.Group
+	g.Go(func() error {
+		if err := list.EncodeRLP(w); err != nil {
+			return err
+		}
+		return w.Close()
+	})
+	g.Go(func() error {
+		// Avoid infinite recursion due to calling h.DecodeRLP() again.
+		type noMethodsHdr Header
+		hh := (*noMethodsHdr)(h)
+		return rlp.NewStream(r, 0 /*no input limit*/).Decode(hh)
+	})
+	return g.Wait()
 }
