@@ -44,11 +44,10 @@ type RulesHooks interface {
 	RulesAllowlistHooks
 	// PrecompileOverride signals whether or not the EVM interpreter MUST
 	// override its treatment of the address when deciding if it is a
-	// precompiled contract. If PrecompileOverride returns `true` then the
-	// interpreter will treat the address as a precompile i.f.f the
-	// [PrecompiledContract] is non-nil. If it returns `false` then the default
-	// precompile behaviour is honoured.
-	PrecompileOverride(common.Address) (_ libevm.PrecompiledContract, override bool)
+	// precompiled contract. If PrecompileOverride returns `override` as true then the
+	// interpreter will treat the address as a precompile i.f.f `disable` is false.
+	// If it returns `override` as false then the default precompile behaviour is honoured.
+	PrecompileOverride(common.Address) (_ libevm.PrecompiledContract, disable, override bool)
 	// ActivePrecompiles receives the addresses that would usually be returned
 	// by a call to [vm.ActivePrecompiles] and MUST return the value to be
 	// returned by said function, which will be propagated. It MAY alter the
@@ -124,8 +123,8 @@ func (NOOPHooks) CanCreateContract(_ *libevm.AddressContext, gas uint64, _ libev
 
 // PrecompileOverride instructs the EVM interpreter to use the default
 // precompile behaviour.
-func (NOOPHooks) PrecompileOverride(common.Address) (libevm.PrecompiledContract, bool) {
-	return nil, false
+func (NOOPHooks) PrecompileOverride(common.Address) (p libevm.PrecompiledContract, disable, override bool) {
+	return nil, true, false
 }
 
 // ActivePrecompiles echoes the active addresses unchanged.

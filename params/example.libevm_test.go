@@ -102,22 +102,18 @@ var myForkPrecompiledContracts = map[common.Address]vm.PrecompiledContract{
 }
 
 // PrecompileOverride implements the required [params.RuleHooks] method.
-func (r RulesExtra) PrecompileOverride(addr common.Address) (_ libevm.PrecompiledContract, override bool) {
+// The `override` boolean indicates whether or not [vm.EVMInterpreter] MUST
+// override the address, not what it returns as its own `isPrecompile`
+// boolean. If it is false, the default precompile behaviour will be exhibited.
+// The `disable` boolean indicates that the precompile will be disabled.
+func (r RulesExtra) PrecompileOverride(addr common.Address) (p libevm.PrecompiledContract, disable, override bool) {
 	if !r.IsMyFork {
-		return nil, false
+		disable = true
+		return nil, disable, false
 	}
-	p, ok := myForkPrecompiledContracts[addr]
-	// The returned boolean indicates whether or not [vm.EVMInterpreter] MUST
-	// override the address, not what it returns as its own `isPrecompile`
-	// boolean.
-	//
-	// Therefore returning `nil, true` here indicates that the precompile will
-	// be disabled. Returning `false` here indicates that the default precompile
-	// behaviour will be exhibited.
-	//
-	// The same pattern can alternatively be implemented with an explicit
-	// `disabledPrecompiles` set to make the behaviour clearer.
-	return p, ok
+	p, override = myForkPrecompiledContracts[addr]
+	disable = p == nil
+	return p, disable, override
 }
 
 // CanCreateContract implements the required [params.RuleHooks] method. Access

@@ -64,12 +64,14 @@ func (s *Stub) Register(tb testing.TB) params.ExtraPayloads[*Stub, *Stub] {
 // PrecompileOverride uses the s.PrecompileOverrides map, if non-empty, as the
 // canonical source of all overrides. If the map is empty then no precompiles
 // are overridden.
-func (s Stub) PrecompileOverride(a common.Address) (libevm.PrecompiledContract, bool) {
+func (s Stub) PrecompileOverride(a common.Address) (p libevm.PrecompiledContract, disable, override bool) {
 	if len(s.PrecompileOverrides) == 0 {
-		return nil, false
+		disable, override = true, false
+		return nil, disable, override
 	}
 	p, ok := s.PrecompileOverrides[a]
-	return p, ok
+	disable = p == nil
+	return p, disable, ok
 }
 
 // ActivePrecompiles proxies arguments to the s.ActivePrecompilesFn function if
