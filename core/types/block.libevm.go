@@ -63,16 +63,15 @@ func (e ExtraPayloads[HPtr, SA]) hooksFromHeader(h *Header) HeaderHooks {
 	return e.Header.Get(h)
 }
 
+func (h *Header) extraField() **pseudo.Type { return &h.extra }
+
 func (h *Header) extraPayload() *pseudo.Type {
 	r := registeredExtras
 	if !r.Registered() {
 		// See params.ChainConfig.extraPayload() for panic rationale.
 		panic(fmt.Sprintf("%T.extraPayload() called before RegisterExtras()", r))
 	}
-	if h.extra == nil {
-		h.extra = r.Get().newHeader()
-	}
-	return h.extra
+	return r.Get().header.Get(h)
 }
 
 // NOOPHeaderHooks implements [HeaderHooks] such that they are equivalent to

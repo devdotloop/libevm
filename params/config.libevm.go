@@ -73,11 +73,17 @@ func RegisterExtras[C ChainConfigHooks, R RulesHooks](e Extras[C, R]) ExtraPaylo
 
 	payloads := e.payloads()
 	registeredExtras.MustRegister(&extraConstructors{
-		newChainConfig: pseudo.NewConstructor[C]().Zero,
-		newRules:       pseudo.NewConstructor[R]().Zero,
-		reuseJSONRoot:  e.ReuseJSONRoot,
-		newForRules:    e.newForRules,
-		payloads:       payloads,
+		chainConfig: pseudo.MustNewFieldIn[*ChainConfig, C](
+			pseudo.ZeroValue,
+			(*ChainConfig).extraField,
+		),
+		rules: pseudo.MustNewFieldIn[*Rules, R](
+			pseudo.ZeroValue,
+			(*Rules).extraField,
+		),
+		reuseJSONRoot: e.ReuseJSONRoot,
+		newForRules:   e.newForRules,
+		payloads:      payloads,
 	})
 	return payloads
 }
@@ -97,9 +103,10 @@ func TestOnlyClearRegisteredExtras() {
 var registeredExtras register.AtMostOnce[*extraConstructors]
 
 type extraConstructors struct {
-	newChainConfig, newRules func() *pseudo.Type
-	reuseJSONRoot            bool
-	newForRules              func(_ *ChainConfig, _ *Rules, blockNum *big.Int, isMerge bool, timestamp uint64) *pseudo.Type
+	chainConfig   pseudo.FieldIn[*ChainConfig]
+	rules         pseudo.FieldIn[*Rules]
+	reuseJSONRoot bool
+	newForRules   func(_ *ChainConfig, _ *Rules, blockNum *big.Int, isMerge bool, timestamp uint64) *pseudo.Type
 	// use top-level hooksFrom<X>() functions instead of these as they handle
 	// instances where no [Extras] were registered.
 	payloads interface {
@@ -110,7 +117,7 @@ type extraConstructors struct {
 
 func (e *Extras[C, R]) newForRules(c *ChainConfig, r *Rules, blockNum *big.Int, isMerge bool, timestamp uint64) *pseudo.Type {
 	if e.NewRules == nil {
-		return registeredExtras.Get().newRules()
+		return registeredExtras.Get().rules.Default()
 	}
 	rExtra := e.NewRules(c, r, e.payloads().ChainConfig.Get(c), blockNum, isMerge, timestamp)
 	return pseudo.From(rExtra).Type
@@ -180,11 +187,15 @@ func (c *ChainConfig) addRulesExtra(r *Rules, blockNum *big.Int, isMerge bool, t
 	}
 }
 
+func (c *ChainConfig) extraField() **pseudo.Type { return &c.extra }
+func (r *Rules) extraField() **pseudo.Type       { return &r.extra }
+
 // extraPayload returns the ChainConfig's extra payload iff [RegisterExtras] has
 // already been called. If the payload hasn't been populated (typically via
 // unmarshalling of JSON), a nil value is constructed and returned.
 func (c *ChainConfig) extraPayload() *pseudo.Type {
-	if !registeredExtras.Registered() {
+	r := registeredExtras
+	if !r.Registered() {
 		// This will only happen if someone constructs an [ExtraPayloads]
 		// directly, without a call to [RegisterExtras]. It would also panic on
 		// the next call anyway so this is at least a useful message.
@@ -192,20 +203,15 @@ func (c *ChainConfig) extraPayload() *pseudo.Type {
 		// See https://google.github.io/styleguide/go/best-practices#when-to-panic
 		panic(fmt.Sprintf("%T.ExtraPayload() called before RegisterExtras()", c))
 	}
-	if c.extra == nil {
-		c.extra = registeredExtras.Get().newChainConfig()
-	}
-	return c.extra
+	return r.Get().chainConfig.Get(c)
 }
 
 // extraPayload is equivalent to [ChainConfig.extraPayload].
 func (r *Rules) extraPayload() *pseudo.Type {
-	if !registeredExtras.Registered() {
+	e := registeredExtras
+	if !e.Registered() {
 		// See ChainConfig.extraPayload() equivalent.
 		panic(fmt.Sprintf("%T.ExtraPayload() called before RegisterExtras()", r))
 	}
-	if r.extra == nil {
-		r.extra = registeredExtras.Get().newRules()
-	}
-	return r.extra
+	return e.Get().rules.Get(r)
 }

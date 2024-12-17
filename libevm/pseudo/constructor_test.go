@@ -40,14 +40,30 @@ func testConstructor[T any](t *testing.T) {
 			assert.Nil(t, got)
 		})
 
+		t.Run("Construct(NilPointer)", func(t *testing.T) {
+			got := get[*T](t, ctor.Construct(NilPointer))
+			assert.Nil(t, got)
+		})
+
 		t.Run("NewPointer()", func(t *testing.T) {
 			got := get[*T](t, ctor.NewPointer())
 			require.NotNil(t, got)
 			assert.Equal(t, zero, *got)
 		})
 
+		t.Run("Construct(NewPointer)", func(t *testing.T) {
+			got := get[*T](t, ctor.Construct(NewPointer))
+			require.NotNil(t, got)
+			assert.Equal(t, zero, *got)
+		})
+
 		t.Run("Zero()", func(t *testing.T) {
 			got := get[T](t, ctor.Zero())
+			assert.Equal(t, zero, got)
+		})
+
+		t.Run("Construct(ZeroValue)", func(t *testing.T) {
+			got := get[T](t, ctor.Construct(ZeroValue))
 			assert.Equal(t, zero, got)
 		})
 	})

@@ -54,7 +54,7 @@ func RegisterExtras[
 			func(h *Header, t *pseudo.Type) { h.extra = t },
 		),
 		StateAccount: pseudo.NewAccessor[StateOrSlimAccount, SA](
-			func(a StateOrSlimAccount) *pseudo.Type { return a.extra().payload() },
+			func(a StateOrSlimAccount) *pseudo.Type { return a.extra().extraPayload() },
 			func(a StateOrSlimAccount, t *pseudo.Type) { a.extra().t = t },
 		),
 	}
@@ -66,8 +66,14 @@ func RegisterExtras[
 		// The [ExtraPayloads] that we returns is based on [HPtr,SA], not [H,SA]
 		// so our constructors MUST match that. This guarantees that calls to
 		// the [HeaderHooks] methods will never be performed on a nil pointer.
-		newHeader:         pseudo.NewConstructor[H]().NewPointer, // i.e. non-nil HPtr
-		newStateAccount:   pseudo.NewConstructor[SA]().Zero,
+		header: pseudo.MustNewFieldIn[*Header, H](
+			pseudo.NewPointer, // i.e. non-nil HPtr
+			(*Header).extraField,
+		),
+		stateAccount: pseudo.MustNewFieldIn[*StateAccountExtra, SA](
+			pseudo.ZeroValue,
+			(*StateAccountExtra).extraField,
+		),
 		cloneStateAccount: extra.cloneStateAccount,
 		hooks:             extra,
 	})
@@ -87,10 +93,11 @@ func TestOnlyClearRegisteredExtras() {
 var registeredExtras register.AtMostOnce[*extraConstructors]
 
 type extraConstructors struct {
-	stateAccountType           string
-	newHeader, newStateAccount func() *pseudo.Type
-	cloneStateAccount          func(*StateAccountExtra) *StateAccountExtra
-	hooks                      interface {
+	header            pseudo.FieldIn[*Header]
+	stateAccount      pseudo.FieldIn[*StateAccountExtra]
+	stateAccountType  string
+	cloneStateAccount func(*StateAccountExtra) *StateAccountExtra
+	hooks             interface {
 		hooksFromHeader(*Header) HeaderHooks
 	}
 }
@@ -148,18 +155,17 @@ func (a *SlimAccount) extra() *StateAccountExtra {
 
 func getOrSetNewStateAccountExtra(curr **StateAccountExtra) *StateAccountExtra {
 	if *curr == nil {
-		*curr = &StateAccountExtra{
-			t: registeredExtras.Get().newStateAccount(),
-		}
+		s := &StateAccountExtra{}
+		registeredExtras.Get().stateAccount.SetToDefault(s)
+		*curr = s
 	}
 	return *curr
 }
 
-func (e *StateAccountExtra) payload() *pseudo.Type {
-	if e.t == nil {
-		e.t = registeredExtras.Get().newStateAccount()
-	}
-	return e.t
+func (e *StateAccountExtra) extraField() **pseudo.Type { return &e.t }
+
+func (e *StateAccountExtra) extraPayload() *pseudo.Type {
+	return registeredExtras.Get().stateAccount.Get(e)
 }
 
 // Equal reports whether `e` is semantically equivalent to `f` for the purpose
@@ -205,7 +211,7 @@ func (e *StateAccountExtra) EncodeRLP(w io.Writer) error {
 		e = &StateAccountExtra{}
 		fallthrough
 	case e.t == nil:
-		e.t = r.Get().newStateAccount()
+		r.Get().stateAccount.SetToDefault(e)
 	}
 	return e.t.EncodeRLP(w)
 }
@@ -216,7 +222,7 @@ func (e *StateAccountExtra) DecodeRLP(s *rlp.Stream) error {
 	case !r.Registered():
 		return nil
 	case e.t == nil:
-		e.t = r.Get().newStateAccount()
+		r.Get().stateAccount.SetToDefault(e)
 		fallthrough
 	default:
 		return s.Decode(e.t)

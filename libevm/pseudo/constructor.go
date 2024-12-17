@@ -16,12 +16,29 @@
 
 package pseudo
 
+import "fmt"
+
+type Construction uint
+
+const (
+	unknownConstructionType Construction = iota
+	ZeroValue
+	NewPointer
+	NilPointer
+	constructionTypeUpperBound
+)
+
+func (c Construction) IsValid() bool {
+	return c < constructionTypeUpperBound && c != unknownConstructionType
+}
+
 // A Constructor returns newly constructed [Type] instances for a pre-registered
 // concrete type.
 type Constructor interface {
 	Zero() *Type
 	NewPointer() *Type
 	NilPointer() *Type
+	Construct(Construction) *Type
 }
 
 // NewConstructor returns a [Constructor] that builds `T` [Type] instances.
@@ -37,4 +54,16 @@ func (ctor[T]) NilPointer() *Type { return Zero[*T]().Type }
 func (ctor[T]) NewPointer() *Type {
 	var x T
 	return From(&x).Type
+}
+
+func (ct ctor[T]) Construct(c Construction) *Type {
+	switch c {
+	case ZeroValue:
+		return ct.Zero()
+	case NewPointer:
+		return ct.NewPointer()
+	case NilPointer:
+		return ct.NilPointer()
+	}
+	panic(fmt.Sprintf("unknown %T (%d)", c, c))
 }
