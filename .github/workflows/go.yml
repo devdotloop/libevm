@@ -29,7 +29,7 @@ jobs:
     env:
       EXCLUDE_REGEX: 'ava-labs/libevm/(accounts/usbwallet/trezor)$'
     runs-on: ubuntu-latest
-    container: ethereum/solc:0.8.28
+    container: ethereum/solc:0.8.28-alpine
     steps:
       - uses: actions/checkout@v4
       - name: Set up Go
