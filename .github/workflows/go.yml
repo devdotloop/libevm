@@ -34,7 +34,8 @@ jobs:
         run: |
           sudo add-apt-repository ppa:ethereum/ethereum
           sudo apt update
-          sudo apt install solc=1:0.8.28-0ubuntu1
+          sudo apt list -a solc
+          sudo apt install solc=1:0.8.28-0ubuntu1~noble
 
       - uses: actions/checkout@v4
       - name: Set up Go
