@@ -1,1 +1,3 @@
-IPrecompile.bin
+*.abi
+*.bin
+

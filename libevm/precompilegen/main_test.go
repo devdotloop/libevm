@@ -39,6 +39,8 @@ import (
 	"github.com/ava-labs/libevm/params"
 )
 
+// Note that the .abi and .bin files are .gitignored as only the generated Go
+// files are necessary.
 //go:generate solc -o ./ --overwrite --abi --bin Test.sol
 //go:generate go run . -in IPrecompile.abi -out ./testprecompile/generated.go -package testprecompile
 //go:generate go run ../../cmd/abigen --abi PrecompileTest.abi --bin PrecompileTest.bin --pkg main --out ./abigen.gen_test.go --type PrecompileTest
