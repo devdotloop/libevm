@@ -25,6 +25,7 @@ import (
 	"golang.org/x/exp/rand"
 
 	"github.com/ava-labs/libevm/common"
+	"github.com/ava-labs/libevm/core/types"
 	"github.com/ava-labs/libevm/crypto"
 )
 
@@ -100,4 +101,16 @@ func (r *PseudoRand) UnsafePrivateKey(tb testing.TB) *ecdsa.PrivateKey {
 		tb.Fatalf("ecdsa.GenerateKey(crypto.S256(), %T) error %v", r.Rand, err)
 	}
 	return key
+}
+
+// Bloom returns a pseudorandom Bloom.
+func (r *PseudoRand) Bloom() (b types.Bloom) {
+	r.Read(b[:])
+	return b
+}
+
+// BlockNonce returns a pseudorandom BlockNonce.
+func (r *PseudoRand) BlockNonce() (n types.BlockNonce) {
+	r.Read(n[:])
+	return n
 }

@@ -18,7 +18,7 @@ import (
 type Contract interface {
 	// Fallback implements a fallback function, called if the method selector
 	// fails to match any other method.
-	Fallback(vm.PrecompileEnvironment, []byte) ([]byte, uint64, error)
+	Fallback(vm.PrecompileEnvironment, []byte) ([]byte, error)
 
 	// Echo implements the function with selector 0x34d6d9be:
 	// function Echo(uint256 ) view returns(uint256)
@@ -87,7 +87,7 @@ type precompile struct {
 	impl Contract
 }
 
-func (p precompile) run(env vm.PrecompileEnvironment, input []byte, suppliedGas uint64) ([]byte, uint64, error) {
+func (p precompile) run(env vm.PrecompileEnvironment, input []byte) ([]byte, error) {
 	selector, ok := methods.FindSelector(input)
 	if !ok {
 		return p.impl.Fallback(env, input)
@@ -95,11 +95,11 @@ func (p precompile) run(env vm.PrecompileEnvironment, input []byte, suppliedGas 
 	ret, err := dispatchers[selector](p.impl, env, input)
 	switch err := err.(type) {
 	case nil:
-		return ret, 0, nil
+		return ret, nil
 	case vm.RevertError:
-		return err.Bytes(), 0, vm.ErrExecutionReverted
+		return err.Bytes(), vm.ErrExecutionReverted
 	default:
-		return nil, 0, err
+		return nil, err
 	}
 }
 

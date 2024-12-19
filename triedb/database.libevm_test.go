@@ -13,10 +13,42 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see
 // <http://www.gnu.org/licenses/>.
-package vm
 
-// The original RunPrecompiledContract was migrated to being a method on
-// [evmCallArgs]. We need to replace it for use by regular geth tests.
-func RunPrecompiledContract(p PrecompiledContract, input []byte, suppliedGas uint64) (ret []byte, remainingGas uint64, err error) {
-	return new(evmCallArgs).RunPrecompiledContract(p, input, suppliedGas)
+package triedb
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/ava-labs/libevm/common"
+	"github.com/ava-labs/libevm/ethdb"
+	"github.com/ava-labs/libevm/triedb/database"
+)
+
+func TestDBOverride(t *testing.T) {
+	config := &Config{
+		DBOverride: func(d ethdb.Database, c *Config) DBOverride {
+			return override{}
+		},
+	}
+
+	db := NewDatabase(nil, config)
+	got, err := db.Reader(common.Hash{})
+	require.NoError(t, err)
+	if _, ok := got.(reader); !ok {
+		t.Errorf("with non-nil %T.DBOverride, %T.Reader() got concrete type %T; want %T", config, db, got, reader{})
+	}
+}
+
+type override struct {
+	PathDB
+}
+
+type reader struct {
+	database.Reader
+}
+
+func (override) Reader(common.Hash) (database.Reader, error) {
+	return reader{}, nil
 }

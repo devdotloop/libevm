@@ -13,10 +13,30 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see
 // <http://www.gnu.org/licenses/>.
-package vm
 
-// The original RunPrecompiledContract was migrated to being a method on
-// [evmCallArgs]. We need to replace it for use by regular geth tests.
-func RunPrecompiledContract(p PrecompiledContract, input []byte, suppliedGas uint64) (ret []byte, remainingGas uint64, err error) {
-	return new(evmCallArgs).RunPrecompiledContract(p, input, suppliedGas)
+// Package options provides a generic mechanism for defining configuration of
+// arbitrary types.
+package options
+
+// An Option configures values of arbitrary type.
+type Option[T any] interface {
+	Configure(*T)
 }
+
+// As applies Options to a zero-value T, which it then returns.
+func As[T any](opts ...Option[T]) *T {
+	var t T
+	for _, o := range opts {
+		o.Configure(&t)
+	}
+	return &t
+}
+
+// A Func converts a function into an [Option], using itself as the Configure
+// method.
+type Func[T any] func(*T)
+
+var _ Option[struct{}] = Func[struct{}](nil)
+
+// Configure implements the [Option] interface.
+func (f Func[T]) Configure(t *T) { f(t) }

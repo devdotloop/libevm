@@ -79,7 +79,7 @@ func TestGeneratedPrecompile(t *testing.T) {
 		},
 		func(nodeConf *node.Config, ethConf *ethconfig.Config) {
 			ethConf.Genesis.GasLimit = 30e6
-			extras.SetOnChainConfig(ethConf.Genesis.Config, hooks)
+			extras.ChainConfig.Set(ethConf.Genesis.Config, hooks)
 		},
 	)
 	defer sim.Close()
@@ -169,10 +169,10 @@ type contract struct{}
 
 var _ testprecompile.Contract = contract{}
 
-func (contract) Fallback(env vm.PrecompileEnvironment, callData []byte) ([]byte, uint64, error) {
+func (contract) Fallback(env vm.PrecompileEnvironment, callData []byte) ([]byte, error) {
 	// Note the test-suite assumption of the fallback's behaviour:
 	var _ = (*PrecompileTest).EchoingFallback
-	return callData, 0, nil
+	return callData, nil
 }
 
 func (contract) Echo(env vm.PrecompileEnvironment, x *big.Int) (*big.Int, error) {
