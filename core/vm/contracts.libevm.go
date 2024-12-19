@@ -143,12 +143,22 @@ type PrecompileEnvironment interface {
 	Rules() params.Rules
 	// StateDB will be non-nil i.f.f !ReadOnly().
 	StateDB() StateDB
-	// ReadOnlyState will always be non-nil.
+	// ReadOnlyState will be non-nil i.f.f. SetPure() has not been called.
 	ReadOnlyState() libevm.StateReader
+
+	// SetReadOnly ensures that all future calls to ReadOnly() will return true.
+	// Is can be used as a guard against accidental writes when a read-only
+	// function is invoked with EVM call() instead of staticcall().
+	SetReadOnly()
+	// SetPure ensures that all future calls to ReadOnly() will return true and
+	// that calls to ReadOnlyState() will return nil.
+	// TODO(arr4n) DO NOT MERGE: change this and SetReadOnly to return new
+	// environments.
+	SetPure()
+	ReadOnly() bool
 
 	IncomingCallType() CallType
 	Addresses() *libevm.AddressContext
-	ReadOnly() bool
 	// Equivalent to respective methods on [Contract].
 	Gas() uint64
 	UseGas(uint64) (hasEnoughGas bool)

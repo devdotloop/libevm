@@ -148,6 +148,24 @@ func TestGeneratedPrecompile(t *testing.T) {
 			},
 			wantCalledEvent: "EchoingFallback(...)",
 		},
+		{
+			transact: func() (*types.Transaction, error) {
+				return suite.View()
+			},
+			wantCalledEvent: "View()",
+		},
+		{
+			transact: func() (*types.Transaction, error) {
+				return suite.Pure()
+			},
+			wantCalledEvent: "Pure()",
+		},
+		{
+			transact: func() (*types.Transaction, error) {
+				return suite.NeitherViewNorPure()
+			},
+			wantCalledEvent: "NeitherViewNorPure()",
+		},
 	}
 
 	for _, tt := range tests {
@@ -157,7 +175,7 @@ func TestGeneratedPrecompile(t *testing.T) {
 			sim.Commit()
 
 			rcpt := successfulTxReceipt(ctx, t, client, tx)
-			require.Equalf(t, uint64(1), rcpt.Status, "%T.Status (i.e. transaction included)", rcpt)
+			require.Equalf(t, uint64(1), rcpt.Status, "%T.Status (i.e. transaction executed without error)", rcpt)
 
 			require.Lenf(t, rcpt.Logs, 1, "%T.Logs", rcpt)
 			called, err := test.ParseCalled(*rcpt.Logs[0])
@@ -209,4 +227,24 @@ func (contract) RevertWith(env vm.PrecompileEnvironment, x []byte) error {
 
 func (contract) Self(env vm.PrecompileEnvironment) (common.Address, error) {
 	return env.Addresses().Self, nil
+}
+
+func canReadState(env vm.PrecompileEnvironment) bool {
+	return env.ReadOnlyState() != nil
+}
+
+func canWriteState(env vm.PrecompileEnvironment) bool {
+	return env.StateDB() != nil
+}
+
+func (contract) View(env vm.PrecompileEnvironment) (bool, bool, error) {
+	return canReadState(env), canWriteState(env), nil
+}
+
+func (contract) Pure(env vm.PrecompileEnvironment) (bool, bool, error) {
+	return canReadState(env), canWriteState(env), nil
+}
+
+func (contract) NeitherViewNorPure(env vm.PrecompileEnvironment) (bool, bool, error) {
+	return canReadState(env), canWriteState(env), nil
 }

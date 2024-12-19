@@ -18,6 +18,12 @@ interface IPrecompile {
     function Self() external view returns (address);
 
     function RevertWith(bytes memory) external;
+
+    function View() external view returns (bool canReadState, bool canWriteState);
+
+    function Pure() external pure returns (bool canReadState, bool canWriteState);
+
+    function NeitherViewNorPure() external returns (bool canReadState, bool canWriteState);
 }
 
 /// @dev Testing contract to exercise the implementaiton of `IPrecompile`.
@@ -74,5 +80,31 @@ contract PrecompileTest {
         assert(keccak256(ret) == keccak256(data));
 
         emit Called("EchoingFallback(...)");
+    }
+
+    function assertReadOnly(bytes4 selector, bool expectCanReadState, bool expectCanWriteState) internal {
+        // We use a low-level call() here to ensure that the Solidity compiler
+        // doesn't issue a staticcall() to view/pure functions as this would
+        // hide our forcing of a read-only state.
+        (bool ok, bytes memory ret) = address(precompile).call(abi.encodeWithSelector(selector));
+        assert(ok);
+        (bool canReadState, bool canWriteState) = abi.decode(ret, (bool, bool));
+        assert(canReadState == expectCanReadState);
+        assert(canWriteState == expectCanWriteState);
+    }
+
+    function View() external {
+        assertReadOnly(IPrecompile.View.selector, true, false);
+        emit Called("View()");
+    }
+
+    function Pure() external {
+        assertReadOnly(IPrecompile.Pure.selector, false, false);
+        emit Called("Pure()");
+    }
+
+    function NeitherViewNorPure() external {
+        assertReadOnly(IPrecompile.NeitherViewNorPure.selector, true, true);
+        emit Called("NeitherViewNorPure()");
     }
 }
