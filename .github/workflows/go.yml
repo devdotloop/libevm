@@ -29,8 +29,13 @@ jobs:
     env:
       EXCLUDE_REGEX: 'ava-labs/libevm/(accounts/usbwallet/trezor)$'
     runs-on: ubuntu-latest
-    container: ethereum/solc:0.8.28-alpine
     steps:
+      - name: Install solc
+        run: |
+          sudo add-apt-repository ppa:ethereum/ethereum
+          sudo apt update
+          sudo apt install solc=0.8.28
+
       - uses: actions/checkout@v4
       - name: Set up Go
         uses: actions/setup-go@v5
