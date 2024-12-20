@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see
 // <http://www.gnu.org/licenses/>.
-package main
+package testprecompile
 
 import (
 	"context"
@@ -34,16 +34,15 @@ import (
 	"github.com/ava-labs/libevm/libevm"
 	"github.com/ava-labs/libevm/libevm/ethtest"
 	"github.com/ava-labs/libevm/libevm/hookstest"
-	"github.com/ava-labs/libevm/libevm/precompilegen/testprecompile"
 	"github.com/ava-labs/libevm/node"
 	"github.com/ava-labs/libevm/params"
 )
 
 // Note that the .abi and .bin files are .gitignored as only the generated Go
 // files are necessary.
-//go:generate solc -o ./ --overwrite --abi --bin Test.sol
-//go:generate go run . -in IPrecompile.abi -out ./testprecompile/generated.go -package testprecompile
-//go:generate go run ../../cmd/abigen --abi PrecompileTest.abi --bin PrecompileTest.bin --pkg main --out ./abigen.gen_test.go --type PrecompileTest
+//go:generate solc -o ./ --overwrite --abi --bin IPrecompile.sol TestSuite.sol
+//go:generate go run ../ -in IPrecompile.abi -out ./generated.go -package testprecompile
+//go:generate go run ../../../cmd/abigen --abi TestSuite.abi --bin TestSuite.bin --pkg testprecompile --out ./suite.abigen_test.go --type TestSuite
 
 func successfulTxReceipt(ctx context.Context, tb testing.TB, client bind.DeployBackend, tx *types.Transaction) *types.Receipt {
 	tb.Helper()
@@ -60,7 +59,7 @@ func TestGeneratedPrecompile(t *testing.T) {
 
 	hooks := &hookstest.Stub{
 		PrecompileOverrides: map[common.Address]libevm.PrecompiledContract{
-			precompile: testprecompile.New(contract{}),
+			precompile: New(contract{}),
 		},
 	}
 	extras := hookstest.Register(t, params.Extras[*hookstest.Stub, *hookstest.Stub]{
@@ -92,13 +91,13 @@ func TestGeneratedPrecompile(t *testing.T) {
 	txOpts.Value = big.NewInt(1e9)
 
 	client := sim.Client()
-	_, tx, test, err := DeployPrecompileTest(txOpts, client, precompile)
-	require.NoError(t, err, "DeployPrecompileTest(...)")
+	_, tx, test, err := DeployTestSuite(txOpts, client, precompile)
+	require.NoError(t, err, "DeployTestSuite(...)")
 	sim.Commit()
 	successfulTxReceipt(ctx, t, client, tx)
 
 	txOpts.Value = nil
-	suite := &PrecompileTestSession{
+	suite := &TestSuiteSession{
 		Contract:     test,
 		TransactOpts: *txOpts,
 	}
@@ -196,11 +195,11 @@ func TestGeneratedPrecompile(t *testing.T) {
 
 type contract struct{}
 
-var _ testprecompile.Contract = contract{}
+var _ Contract = contract{}
 
 func (contract) Fallback(env vm.PrecompileEnvironment, callData []byte) ([]byte, error) {
 	// Note the test-suite assumption of the fallback's behaviour:
-	var _ = (*PrecompileTest).EchoingFallback
+	var _ = (*TestSuite).EchoingFallback
 	return callData, nil
 }
 
