@@ -102,9 +102,11 @@ type dispatch struct{}
 
 {{range methods .ABI}}
 func (dispatch) {{.Name}}(impl Contract, env vm.PrecompileEnvironment, input []byte) ([]byte, error) {
+    {{if or (gt (len .Inputs) 0) (gt (len .Outputs) 0) -}}
     method := methods[{{hex .ID}}]
+    {{- end}}
 
-    {{if gt (len .Inputs) 0}}
+    {{if gt (len .Inputs) 0 -}}
     inputs, err := method.Inputs.Unpack(input[abi.SelectorByteLen:])
     if err != nil {
         return nil, err
@@ -112,7 +114,7 @@ func (dispatch) {{.Name}}(impl Contract, env vm.PrecompileEnvironment, input []b
     {{- range $i, $in := .Inputs}}
     i{{$i}} := inputs[{{$i}}].({{type $in}})
     {{- end}}
-    {{end}}
+    {{- end}}
 
     {
     {{args "o" (len .Outputs) false true}} := impl.{{.Name}}({{args "i" (len .Inputs) true false}})
@@ -123,7 +125,7 @@ func (dispatch) {{.Name}}(impl Contract, env vm.PrecompileEnvironment, input []b
     return method.Outputs.Pack({{args "o" (len .Outputs) false false}})
     {{- else -}}
     return nil, nil
-    {{end}}
+    {{- end}}
     }
 }
 {{end}}

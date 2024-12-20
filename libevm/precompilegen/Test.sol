@@ -24,13 +24,17 @@ interface IPrecompile {
     function Pure() external pure returns (bool canReadState, bool canWriteState);
 
     function NeitherViewNorPure() external returns (bool canReadState, bool canWriteState);
+
+    function Payable() external payable returns (uint256 value);
+
+    function NonPayable() external;
 }
 
 /// @dev Testing contract to exercise the implementaiton of `IPrecompile`.
 contract PrecompileTest {
     IPrecompile immutable precompile;
 
-    constructor(IPrecompile _precompile) {
+    constructor(IPrecompile _precompile) payable {
         precompile = _precompile;
     }
 
@@ -106,5 +110,16 @@ contract PrecompileTest {
     function NeitherViewNorPure() external {
         assertReadOnly(IPrecompile.NeitherViewNorPure.selector, true, true);
         emit Called("NeitherViewNorPure()");
+    }
+
+    function Transfer() external {
+        uint256 value = precompile.Payable{value: 42}();
+        assert(value == 42);
+
+        (bool ok,) = address(precompile).call{value: 42}(abi.encodeWithSelector(IPrecompile.NonPayable.selector));
+        assert(!ok);
+        // TODO: DO NOT MERGE without checking the return data
+
+        emit Called("Transfer()");
     }
 }

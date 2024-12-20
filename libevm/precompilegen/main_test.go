@@ -89,12 +89,15 @@ func TestGeneratedPrecompile(t *testing.T) {
 	txOpts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 	require.NoError(t, err, "bind.NewKeyedTransactorWithChainID(..., 1337)")
 	txOpts.GasLimit = 30e6
+	txOpts.Value = big.NewInt(1e9)
 
 	client := sim.Client()
 	_, tx, test, err := DeployPrecompileTest(txOpts, client, precompile)
 	require.NoError(t, err, "DeployPrecompileTest(...)")
 	sim.Commit()
 	successfulTxReceipt(ctx, t, client, tx)
+
+	txOpts.Value = nil
 	suite := &PrecompileTestSession{
 		Contract:     test,
 		TransactOpts: *txOpts,
@@ -165,6 +168,12 @@ func TestGeneratedPrecompile(t *testing.T) {
 				return suite.NeitherViewNorPure()
 			},
 			wantCalledEvent: "NeitherViewNorPure()",
+		},
+		{
+			transact: func() (*types.Transaction, error) {
+				return suite.Transfer()
+			},
+			wantCalledEvent: "Transfer()",
 		},
 	}
 
@@ -247,4 +256,12 @@ func (contract) Pure(env vm.PrecompileEnvironment) (bool, bool, error) {
 
 func (contract) NeitherViewNorPure(env vm.PrecompileEnvironment) (bool, bool, error) {
 	return canReadState(env), canWriteState(env), nil
+}
+
+func (contract) Payable(env vm.PrecompileEnvironment) (*big.Int, error) {
+	return env.Value().ToBig(), nil
+}
+
+func (contract) NonPayable(env vm.PrecompileEnvironment) error {
+	return nil
 }
