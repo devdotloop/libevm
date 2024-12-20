@@ -113,6 +113,8 @@ type precompile struct {
 	impl Contract
 }
 
+const revertBufferWhenNonPayableReceivesValue = "non-payable"
+
 func (p precompile) run(env vm.PrecompileEnvironment, input []byte) ([]byte, error) {
 	selector, ok := methods.FindSelector(input)
 	if !ok {
@@ -122,7 +124,7 @@ func (p precompile) run(env vm.PrecompileEnvironment, input []byte) ([]byte, err
 	switch m := methods[selector]; m.StateMutability {
 	case "nonpayable":
 		if !env.Value().IsZero() {
-			return nil, vm.RevertError("non-payable")
+			return []byte(revertBufferWhenNonPayableReceivesValue), vm.ErrExecutionReverted
 		}
 	case "payable":
 	case "pure":
@@ -130,8 +132,10 @@ func (p precompile) run(env vm.PrecompileEnvironment, input []byte) ([]byte, err
 	case "view":
 		env.SetReadOnly()
 	default:
-		// If this happens then `precompilegen` needs to be extended.
-		return nil, vm.RevertError(fmt.Sprintf("unsupported state mutability %q on method %s", m.StateMutability, m.Sig))
+		// If this happens then `precompilegen` needs to be extended because the
+		// Solidity ABI spec changed.
+		data := fmt.Sprintf("unsupported state mutability %q on method %s", m.StateMutability, m.Sig)
+		return []byte(data), vm.ErrExecutionReverted
 	}
 
 	ret, err := dispatchers[selector](p.impl, env, input)

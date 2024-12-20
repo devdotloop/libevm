@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see
 // <http://www.gnu.org/licenses/>.
+
 package testprecompile
 
 import (
@@ -91,7 +92,7 @@ func TestGeneratedPrecompile(t *testing.T) {
 	txOpts.Value = big.NewInt(1e9)
 
 	client := sim.Client()
-	_, tx, test, err := DeployTestSuite(txOpts, client, precompile)
+	_, tx, test, err := DeployTestSuite(txOpts, client, precompile, revertBufferWhenNonPayableReceivesValue)
 	require.NoError(t, err, "DeployTestSuite(...)")
 	sim.Commit()
 	successfulTxReceipt(ctx, t, client, tx)
