@@ -19,8 +19,6 @@ package params
 import (
 	"encoding/json"
 	"fmt"
-
-	"github.com/ava-labs/libevm/libevm/pseudo"
 )
 
 var _ interface {
@@ -28,48 +26,67 @@ var _ interface {
 	json.Unmarshaler
 } = (*ChainConfig)(nil)
 
-// chainConfigWithoutMethods avoids infinite recurion into
+// UnmarshalJSON implements the [json.Unmarshaler] interface.
+func (c *ChainConfig) UnmarshalJSON(data []byte) error {
+	r := registeredExtras
+	if !r.Registered() {
+		return unmarshalChainConfigJSONDirectly(data, c)
+	}
+
+	extra := r.Get().newChainConfig()
+	if err := UnmarshalChainConfigJSON(data, c, extra, r.Get().reuseJSONRoot); err != nil {
+		return err
+	}
+	c.extra = extra
+	return nil
+}
+
+// UnmarshalChainConfigJSON unmarshals JSON into a coupled ChainConfig and
+// arbitrary extra payload, as if the payload's type had been registered as
+// [Extras]. This is equivalent to regular JSON handling but without the need
+// for explicit registration with [RegisterExtras]; e.g. when unmarshalling
+// configs from chains that use different payload types.
+//
+// `extra` MUST NOT be nil. Such circumstances are equivalent to regular JSON
+// handling, in which case [ChainConfig.UnmarshalJSON] or [json.Unmarshal]
+// should be used directly.
+func UnmarshalChainConfigJSON[C any](data []byte, c *ChainConfig, extra *C, reuseJSONRoot bool) error {
+	if !reuseJSONRoot {
+		return c.unmarshalJSONWithExtra(data, extra)
+	}
+	if err := json.Unmarshal(data, extra); err != nil {
+		return fmt.Errorf("unmarshal JSON into %T payload %T: %v", c, extra, err)
+	}
+	return unmarshalChainConfigJSONDirectly(data, c)
+}
+
+// chainConfigWithoutMethods avoids infinite recursion into
 // [ChainConfig.UnmarshalJSON].
 type chainConfigWithoutMethods ChainConfig
+
+func unmarshalChainConfigJSONDirectly(data []byte, c *ChainConfig) error {
+	if err := json.Unmarshal(data, (*chainConfigWithoutMethods)(c)); err != nil {
+		return fmt.Errorf("unmarshal JSON into %T: %v", c, err)
+	}
+	return nil
+}
 
 // chainConfigWithExportedExtra supports JSON (un)marshalling of a [ChainConfig]
 // while exposing the `extra` field as the "extra" JSON key.
 type chainConfigWithExportedExtra struct {
-	*chainConfigWithoutMethods              // embedded to achieve regular JSON unmarshalling
-	Extra                      *pseudo.Type `json:"extra"` // `c.extra` is otherwise unexported
+	*chainConfigWithoutMethods     // embedded to achieve regular JSON unmarshalling
+	Extra                      any `json:"extra"` // `c.extra` is otherwise unexported
 }
 
-// UnmarshalJSON implements the [json.Unmarshaler] interface.
-func (c *ChainConfig) UnmarshalJSON(data []byte) error {
-	switch reg := registeredExtras; {
-	case reg.Registered() && !reg.Get().reuseJSONRoot:
-		return c.unmarshalJSONWithExtra(data)
-
-	case reg.Registered() && reg.Get().reuseJSONRoot: // although the latter is redundant, it's clearer
-		c.extra = reg.Get().newChainConfig()
-		if err := json.Unmarshal(data, c.extra); err != nil {
-			c.extra = nil
-			return err
-		}
-		fallthrough // Important! We've only unmarshalled the extra field.
-	default: // reg == nil
-		return json.Unmarshal(data, (*chainConfigWithoutMethods)(c))
-	}
-}
-
-// unmarshalJSONWithExtra unmarshals JSON under the assumption that the
-// registered [Extras] payload is in the JSON "extra" key. All other
-// unmarshalling is performed as if no [Extras] were registered.
-func (c *ChainConfig) unmarshalJSONWithExtra(data []byte) error {
+// unmarshalJSONWithExtra unmarshals JSON under the assumption that the [Extras]
+// payload is in the JSON "extra" key. All other unmarshalling is performed as
+// if no [Extras] were present.
+func (c *ChainConfig) unmarshalJSONWithExtra(data []byte, extra any) error {
 	cc := &chainConfigWithExportedExtra{
 		chainConfigWithoutMethods: (*chainConfigWithoutMethods)(c),
-		Extra:                     registeredExtras.Get().newChainConfig(),
+		Extra:                     extra,
 	}
-	if err := json.Unmarshal(data, cc); err != nil {
-		return err
-	}
-	c.extra = cc.Extra
-	return nil
+	return json.Unmarshal(data, cc)
 }
 
 // MarshalJSON implements the [json.Marshaler] interface.
