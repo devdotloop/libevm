@@ -57,10 +57,10 @@ type evmCallArgs struct {
 type CallType OpCode
 
 const (
-	Call         = CallType(CALL)
-	CallCode     = CallType(CALLCODE)
-	DelegateCall = CallType(DELEGATECALL)
-	StaticCall   = CallType(STATICCALL)
+	Call         CallType = CallType(CALL)
+	CallCode     CallType = CallType(CALLCODE)
+	DelegateCall CallType = CallType(DELEGATECALL)
+	StaticCall   CallType = CallType(STATICCALL)
 )
 
 func (t CallType) isValid() bool {
