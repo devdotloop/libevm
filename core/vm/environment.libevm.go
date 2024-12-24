@@ -81,6 +81,9 @@ func (e *environment) StateMutability() StateMutability {
 	// A switch statement provides clearer code coverage for difficult-to-test
 	// cases.
 	switch {
+	// cases MUST be ordered from most to least restrictive
+	case e.pure:
+		return Pure
 	case e.callType == StaticCall:
 		// evm.interpreter.readOnly is only set to true via a call to
 		// EVMInterpreter.Run() so, if a precompile is called directly with
@@ -90,8 +93,6 @@ func (e *environment) StateMutability() StateMutability {
 		return ReadOnlyState
 	case e.view:
 		return ReadOnlyState
-	case e.pure:
-		return Pure
 	default:
 		return MutableState
 	}

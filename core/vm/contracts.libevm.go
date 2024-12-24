@@ -92,13 +92,13 @@ func (t CallType) OpCode() OpCode {
 type StateMutability uint
 
 const (
-	unknownStateMutability StateMutability = iota
-	MutableState
-	// ReadOnlyState is equivalent to Solidity's "view".
-	ReadOnlyState
 	// Pure is a Solidity concept disallowing all access, read or write, to
 	// state.
-	Pure
+	Pure StateMutability = iota + 1
+	// ReadOnlyState is equivalent to Solidity's "view".
+	ReadOnlyState
+	// MutableState can be both read from and written to.
+	MutableState
 )
 
 // String returns a human-readable representation of the StateMutability.
@@ -177,9 +177,10 @@ type PrecompileEnvironment interface {
 	// context, but [Pure] is a Solidity concept that is enforced by user code.
 	StateMutability() StateMutability
 	// AsReadOnly returns a copy of the current environment for which
-	// StateMutability() returns [ReadOnlyState]. It can be used as a guard
-	// against accidental writes when a read-only function is invoked with EVM
-	// call() instead of staticcall().
+	// StateMutability() is at most [ReadOnlyState]; i.e. if mutability is
+	// already limited to [Pure], AsReadOnly() will not expand access. It can be
+	// used as a guard against accidental writes when a read-only function is
+	// invoked with EVM call() instead of staticcall().
 	AsReadOnly() PrecompileEnvironment
 	// AsPure returns a copy of the current environment that has no access to
 	// state; i.e. StateMutability() returns [Pure]. All calls to both StateDB()
