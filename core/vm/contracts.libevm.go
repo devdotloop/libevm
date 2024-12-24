@@ -88,6 +88,32 @@ func (t CallType) OpCode() OpCode {
 	return INVALID
 }
 
+// StateMutability describes the available state access.
+type StateMutability uint
+
+const (
+	unknownStateMutability StateMutability = iota
+	MutableState
+	// ReadOnlyState is equivalent to Solidity's "view".
+	ReadOnlyState
+	// Pure is a Solidity concept disallowing all access, read or write, to
+	// state.
+	Pure
+)
+
+// String returns a human-readable representation of the StateMutability.
+func (m StateMutability) String() string {
+	switch m {
+	case MutableState:
+		return "mutable"
+	case ReadOnlyState:
+		return "read-only"
+	case Pure:
+		return "no state access"
+	}
+	return fmt.Sprintf("unknown %T(%[1]d)", m)
+}
+
 // run runs the [PrecompiledContract], differentiating between stateful and
 // regular types, updating `args.gasRemaining` in the stateful case.
 func (args *evmCallArgs) run(p PrecompiledContract, input []byte) (ret []byte, err error) {
@@ -141,21 +167,24 @@ func (p statefulPrecompile) Run([]byte) ([]byte, error) {
 type PrecompileEnvironment interface {
 	ChainConfig() *params.ChainConfig
 	Rules() params.Rules
-	// StateDB will be non-nil i.f.f !ReadOnly().
+	// StateDB will be non-nil i.f.f StateMutability() returns [MutableState].
 	StateDB() StateDB
-	// ReadOnlyState will be non-nil i.f.f. SetPure() has not been called.
+	// ReadOnlyState will be non-nil i.f.f. StateMutability() does not return
+	// [Pure].
 	ReadOnlyState() libevm.StateReader
 
-	// SetReadOnly ensures that all future calls to ReadOnly() will return true.
-	// Is can be used as a guard against accidental writes when a read-only
-	// function is invoked with EVM call() instead of staticcall().
-	SetReadOnly()
-	// SetPure ensures that all future calls to ReadOnly() will return true and
-	// that calls to ReadOnlyState() will return nil.
-	// TODO(arr4n) DO NOT MERGE: change this and SetReadOnly to return new
-	// environments.
-	SetPure()
-	ReadOnly() bool
+	// StateMutability can infer [MutableState] vs [ReadOnlyState] based on EVM
+	// context, but [Pure] is a Solidity concept that is enforced by user code.
+	StateMutability() StateMutability
+	// AsReadOnly returns a copy of the current environment for which
+	// StateMutability() returns [ReadOnlyState]. It can be used as a guard
+	// against accidental writes when a read-only function is invoked with EVM
+	// call() instead of staticcall().
+	AsReadOnly() PrecompileEnvironment
+	// AsPure returns a copy of the current environment that has no access to
+	// state; i.e. StateMutability() returns [Pure]. All calls to both StateDB()
+	// and ReadOnlyState() will return nil.
+	AsPure() PrecompileEnvironment
 
 	IncomingCallType() CallType
 	Addresses() *libevm.AddressContext

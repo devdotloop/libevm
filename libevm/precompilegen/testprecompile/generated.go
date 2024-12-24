@@ -128,9 +128,9 @@ func (p precompile) run(env vm.PrecompileEnvironment, input []byte) ([]byte, err
 		}
 	case "payable":
 	case "pure":
-		env.SetPure()
+		env = env.AsPure()
 	case "view":
-		env.SetReadOnly()
+		env = env.AsReadOnly()
 	default:
 		// If this happens then `precompilegen` needs to be extended because the
 		// Solidity ABI spec changed.
