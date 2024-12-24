@@ -770,63 +770,64 @@ func ExamplePrecompileEnvironment() {
 
 func TestStateMutability(t *testing.T) {
 	rng := ethtest.NewPseudoRand(0)
-	precompile := rng.Address()
+	precompileAddr := rng.Address()
 	chainID := rng.BigUint64()
 
 	const precompileReturn = "precompile executed"
+	precompile := vm.NewStatefulPrecompile(func(env vm.PrecompileEnvironment, input []byte) (ret []byte, err error) {
+		tests := []struct {
+			name string
+			env  vm.PrecompileEnvironment
+			want vm.StateMutability
+		}{
+			{
+				name: "incoming argument",
+				env:  env,
+				want: vm.MutableState,
+			},
+			{
+				name: "AsReadOnly()",
+				env:  env.AsReadOnly(),
+				want: vm.ReadOnlyState,
+			},
+			{
+				name: "AsPure()",
+				env:  env.AsPure(),
+				want: vm.Pure,
+			},
+			{
+				name: "AsPure().AsReadOnly() is still pure",
+				env:  env.AsPure().AsReadOnly(),
+				want: vm.Pure,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				env := tt.env // deliberately shadow the incoming arg
+				t.Run("mutability_and_access", func(t *testing.T) {
+					assert.Equal(t, tt.want, env.StateMutability(), "env.StateMutability()")
+					assert.Equal(t, env.StateDB() != nil, tt.want == vm.MutableState, "env.StateDB() != nil i.f.f. MutableState")
+					assert.Equal(t, env.ReadOnlyState() != nil, tt.want != vm.Pure, "env.ReadOnlyState() != nil i.f.f !Pure")
+				})
+
+				t.Run("environment_unmodified", func(t *testing.T) {
+					// Each of these demonstrate that the underlying
+					// copy of the environment propagates everything but
+					// mutability.
+					assert.Equal(t, chainID, env.ChainConfig().ChainID, "Chain ID preserved")
+					assert.Equalf(t, precompileAddr, env.Addresses().Self, "%T preserved", env.Addresses())
+					assert.Equalf(t, vm.Call, env.IncomingCallType(), "%T preserved", env.IncomingCallType())
+				})
+			})
+		}
+
+		return []byte(precompileReturn), nil
+	})
+
 	hooks := &hookstest.Stub{
 		PrecompileOverrides: map[common.Address]libevm.PrecompiledContract{
-			precompile: vm.NewStatefulPrecompile(func(env vm.PrecompileEnvironment, input []byte) (ret []byte, err error) {
-
-				tests := []struct {
-					name string
-					env  vm.PrecompileEnvironment
-					want vm.StateMutability
-				}{
-					{
-						name: "incoming argument",
-						env:  env,
-						want: vm.MutableState,
-					},
-					{
-						name: "AsReadOnly()",
-						env:  env.AsReadOnly(),
-						want: vm.ReadOnlyState,
-					},
-					{
-						name: "AsPure()",
-						env:  env.AsPure(),
-						want: vm.Pure,
-					},
-					{
-						name: "AsPure().AsReadOnly() is still pure",
-						env:  env.AsPure().AsReadOnly(),
-						want: vm.Pure,
-					},
-				}
-
-				for _, tt := range tests {
-					t.Run(tt.name, func(t *testing.T) {
-						env := tt.env // deliberately shadow the incoming arg
-						t.Run("mutability_and_access", func(t *testing.T) {
-							assert.Equal(t, tt.want, env.StateMutability(), "env.StateMutability()")
-							assert.Equal(t, env.StateDB() != nil, tt.want == vm.MutableState, "env.StateDB() != nil i.f.f. MutableState")
-							assert.Equal(t, env.ReadOnlyState() != nil, tt.want != vm.Pure, "env.ReadOnlyState() != nil i.f.f !Pure")
-						})
-
-						t.Run("environment_unmodified", func(t *testing.T) {
-							// Each of these demonstrate that the underlying
-							// copy of the environment propagates everything but
-							// mutability.
-							assert.Equal(t, chainID, env.ChainConfig().ChainID, "Chain ID preserved")
-							assert.Equalf(t, precompile, env.Addresses().Self, "%T preserved", env.Addresses())
-							assert.Equalf(t, vm.Call, env.IncomingCallType(), "%T preserved", env.IncomingCallType())
-						})
-					})
-				}
-
-				return []byte(precompileReturn), nil
-			}),
+			precompileAddr: precompile,
 		},
 	}
 	hooks.Register(t)
@@ -834,7 +835,7 @@ func TestStateMutability(t *testing.T) {
 	_, evm := ethtest.NewZeroEVM(t, ethtest.WithChainConfig(&params.ChainConfig{
 		ChainID: chainID,
 	}))
-	got, _, err := evm.Call(vm.AccountRef{}, precompile, nil, 0, uint256.NewInt(0))
+	got, _, err := evm.Call(vm.AccountRef{}, precompileAddr, nil, 0, uint256.NewInt(0))
 	if got, want := string(got), precompileReturn; err != nil || got != want {
 		t.Errorf("%T.Call([precompile]) got {%q, %v}; want {%q, nil}", evm, got, err, want)
 	}
