@@ -50,7 +50,7 @@ func (m Method) Selector() Selector {
 // representation. The key MUST be equivalent to the value's [Method.Selector].
 type MethodsBySelector map[Selector]Method
 
-// BySelector returns the the [Method]s keyed by their Selectors.
+// MethodsBySelector returns the [Method]s keyed by their Selectors.
 func (a *ABI) MethodsBySelector() MethodsBySelector {
 	ms := make(MethodsBySelector)
 	for _, m := range a.Methods {
