@@ -71,12 +71,11 @@ func (p precompile) run(env vm.PrecompileEnvironment, input []byte) ([]byte, err
         return p.impl.Fallback(env, input)
     }
 
+    payable := false
 	switch m := methods[selector]; m.StateMutability {
-	case "nonpayable":
-		if !env.Value().IsZero() {
-			return []byte(revertBufferWhenNonPayableReceivesValue), vm.ErrExecutionReverted
-		}
 	case "payable":
+        payable = true
+    case "nonpayable":
 	case "pure":
 		env = env.AsPure()
 	case "view":
@@ -87,6 +86,9 @@ func (p precompile) run(env vm.PrecompileEnvironment, input []byte) ([]byte, err
         data := fmt.Sprintf("unsupported state mutability %q on method %s", m.StateMutability, m.Sig)
 		return []byte(data), vm.ErrExecutionReverted
 	}
+    if !payable && !env.Value().IsZero() {
+        return []byte(revertBufferWhenNonPayableReceivesValue), vm.ErrExecutionReverted
+    }
 
     ret, err := dispatchers[selector](p.impl, env, input)
     switch err := err.(type) {

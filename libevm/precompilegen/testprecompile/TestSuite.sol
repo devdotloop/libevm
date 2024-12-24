@@ -93,18 +93,23 @@ contract TestSuite {
         uint256 value = precompile.Payable{value: 42}();
         assert(value == 42);
 
-        callNonPayable(0, "");
-        callNonPayable(1, abi.encodePacked(_expectedNonPayableErrorMsg));
+        bytes4 nonPayable = IPrecompile.NonPayable.selector;
+        callNonPayable(nonPayable, 0, "");
+
+        bytes memory err = abi.encodePacked(_expectedNonPayableErrorMsg);
+        callNonPayable(nonPayable, 1, err);
+        callNonPayable(IPrecompile.View.selector, 1, err);
+        callNonPayable(IPrecompile.Pure.selector, 1, err);
 
         emit Called("Transfer()");
     }
 
-    function callNonPayable(uint256 value, bytes memory expectRevertWith) internal {
+    function callNonPayable(bytes4 selector, uint256 value, bytes memory expectRevertWith) internal {
         // We can't use just call `precompile.NonPayable()` directly because
         // (a) it's a precompile and (b) it doesn't return values, which means
         // that Solidity will perform an EXTCODESIZE check first and revert.
-        bytes memory selector = abi.encodeWithSelector(IPrecompile.NonPayable.selector);
-        (bool ok, bytes memory ret) = address(precompile).call{value: value}(selector);
+        bytes memory data = abi.encodeWithSelector(selector);
+        (bool ok, bytes memory ret) = address(precompile).call{value: value}(data);
 
         if (expectRevertWith.length == 0) {
             assert(ok);
