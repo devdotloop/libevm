@@ -1478,7 +1478,7 @@ func (s *BlockChainAPI) CreateAccessList(ctx context.Context, args TransactionAr
 
 // AccessList creates an access list for the given transaction.
 // If the accesslist creation fails an error is returned.
-// If the transaction itself fails, an vmErr is returned.
+// If the transaction itself fails, a vmErr is returned.
 func AccessList(ctx context.Context, b Backend, blockNrOrHash rpc.BlockNumberOrHash, args TransactionArgs) (acl types.AccessList, gasUsed uint64, vmErr error, err error) {
 	// Retrieve the execution context
 	db, header, err := b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
