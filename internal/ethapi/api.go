@@ -1857,7 +1857,7 @@ func (s *TransactionAPI) Sign(addr common.Address, data hexutil.Bytes) (hexutil.
 	return signature, err
 }
 
-// SignTransactionResult represents a RLP encoded signed transaction.
+// SignTransactionResult represents an RLP encoded signed transaction.
 type SignTransactionResult struct {
 	Raw hexutil.Bytes      `json:"raw"`
 	Tx  *types.Transaction `json:"tx"`

@@ -25,7 +25,7 @@ type Cache[K comparable, V any] struct {
 	mu    sync.Mutex
 }
 
-// NewCache creates a LRU cache.
+// NewCache creates an LRU cache.
 func NewCache[K comparable, V any](capacity int) *Cache[K, V] {
 	return &Cache[K, V]{cache: NewBasicLRU[K, V](capacity)}
 }
