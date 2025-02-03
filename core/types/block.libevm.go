@@ -137,7 +137,7 @@ func (b *Body) EncodeRLP(dst io.Writer) error {
 			return err
 		}
 
-		hasLaterOptionalField := b.Withdrawals != nil
+		hasLaterOptionalField := b.hasOptionalFields()
 		if err := b.hooks().AppendRLPFields(w, hasLaterOptionalField); err != nil {
 			return err
 		}
@@ -146,6 +146,10 @@ func (b *Body) EncodeRLP(dst io.Writer) error {
 		}
 		return rlp.EncodeListToBuffer(w, b.Withdrawals)
 	})
+}
+
+func (b *Body) hasOptionalFields() bool {
+	return b.Withdrawals != nil
 }
 
 // DecodeRLP implements the [rlp.Decoder] interface.
