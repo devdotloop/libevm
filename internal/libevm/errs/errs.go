@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see
 // <http://www.gnu.org/licenses/>.
-//
+
 // Package errs provides a mechanism for [testing error semantics] through
 // unique identifiers, instead of depending on error messages that may result in
 // change-detector tests.
