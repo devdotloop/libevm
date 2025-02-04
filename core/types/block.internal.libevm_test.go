@@ -9,12 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_Body_hasOptionalFields(t *testing.T) {
+func Test_Body_hasAnyOptionalFieldSet(t *testing.T) {
 	t.Parallel()
 
 	var body Body
 
-	assert.False(t, body.hasOptionalFields(), "body has no optional field set")
+	assert.False(t, body.hasAnyOptionalFieldSet(), "body has no optional field set")
 
 	v := reflect.ValueOf(&body).Elem()
 	typ := reflect.TypeOf(body)
@@ -35,7 +35,7 @@ func Test_Body_hasOptionalFields(t *testing.T) {
 			t.Errorf("unexpected field kind %q for field %q", field.Kind(), fieldType.Name)
 		}
 
-		assert.Truef(t, body.hasOptionalFields(), "body has the optional field %q set", fieldType.Name)
+		assert.Truef(t, body.hasAnyOptionalFieldSet(), "body has the optional field %q set", fieldType.Name)
 		field.Set(reflect.ValueOf(before)) // reset the field
 	}
 }

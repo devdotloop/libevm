@@ -137,7 +137,7 @@ func (b *Body) EncodeRLP(dst io.Writer) error {
 			return err
 		}
 
-		hasLaterOptionalField := b.hasOptionalFields()
+		hasLaterOptionalField := b.hasAnyOptionalFieldSet()
 		if err := b.hooks().AppendRLPFields(w, hasLaterOptionalField); err != nil {
 			return err
 		}
@@ -148,7 +148,7 @@ func (b *Body) EncodeRLP(dst io.Writer) error {
 	})
 }
 
-func (b *Body) hasOptionalFields() bool {
+func (b *Body) hasAnyOptionalFieldSet() bool {
 	return b.Withdrawals != nil
 }
 
