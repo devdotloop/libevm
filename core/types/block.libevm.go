@@ -108,3 +108,7 @@ func (*NOOPHeaderHooks) DecodeRLP(h *Header, s *rlp.Stream) error {
 	type withoutMethods Header
 	return s.Decode((*withoutMethods)(h))
 }
+
+func (b *Block) WithBody(body *Body) *Block {
+	return b.withBody(body.Transactions, body.Uncles)
+}
