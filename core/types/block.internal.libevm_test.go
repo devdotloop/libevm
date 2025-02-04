@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_Body_hasAnyOptionalFieldSet(t *testing.T) {
+func TestBody_hasAnyOptionalFieldSet(t *testing.T) {
 	t.Parallel()
 
 	var body Body
