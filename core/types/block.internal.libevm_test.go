@@ -17,9 +17,8 @@ func TestBody_hasAnyOptionalFieldSet(t *testing.T) {
 	assert.False(t, body.hasAnyOptionalFieldSet(), "body has no optional field set")
 
 	v := reflect.ValueOf(&body).Elem()
-	typ := reflect.TypeOf(body)
 	for i := 0; i < v.NumField(); i++ {
-		fieldType := typ.Field(i)
+		fieldType := v.Type().Field(i)
 		tag := fieldType.Tag.Get("rlp")
 		if !slices.Contains(strings.Split(tag, ","), "optional") {
 			continue
