@@ -20,9 +20,8 @@ func Test_Body_hasOptionalFields(t *testing.T) {
 	typ := reflect.TypeOf(body)
 	for i := 0; i < v.NumField(); i++ {
 		fieldType := typ.Field(i)
-		rlpTag := fieldType.Tag.Get("rlp")
-		rlpTagFields := strings.Split(rlpTag, ",")
-		if !slices.Contains(rlpTagFields, "optional") {
+		tag := fieldType.Tag.Get("rlp")
+		if !slices.Contains(strings.Split(tag, ","), "optional") {
 			continue
 		}
 
