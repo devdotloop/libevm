@@ -24,43 +24,48 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIDOf(t *testing.T) {
-	tests := []struct {
-		err    error
-		wantID ID
-		wantOK bool
-	}{
-		{
-			err: errors.New("x"),
-		},
-		{
-			err: fmt.Errorf("x"),
-		},
-		{
-			err:    ID(3).Error("x"),
-			wantID: 3,
-			wantOK: true,
-		},
-		{
-			err:    ID(42).Errorf("x"),
-			wantID: 42,
-			wantOK: true,
-		},
-		{
-			err:    ID(99).Errorf("%w", errors.New("x")),
-			wantID: 99,
-			wantOK: true,
-		},
-		{
-			err:    ID(0).Errorf("%w %w", errors.New("x"), errors.New("y")),
-			wantID: 0,
-			wantOK: true,
-		},
+func TestIs(t *testing.T) {
+	ids := []ID{0, 42}
+	errsByID := make(map[ID][]error)
+	for _, id := range ids {
+		errsByID[id] = []error{
+			WithID(id, "WithID()"),
+			WithIDf(id, "WithIDf() no wrapping"),
+			WithIDf(id, "WithIDf() wrap one %w", errors.New("x")),
+			WithIDf(id, "WithIDf() wrap multi %w + %w", errors.New("x"), errors.New("y")),
+		}
 	}
 
-	for _, tt := range tests {
-		got, ok := IDOf(tt.err)
-		assert.Equalf(t, tt.wantID, got, "IDOf(%T)", tt.err)
-		assert.Equalf(t, tt.wantOK, ok, "IDOf(%T)", tt.err)
+	unidentified := []error{
+		errors.New("errors.New()"),
+		fmt.Errorf("fmt.Errorf()"),
 	}
+
+	for id, errs := range errsByID {
+		for _, err := range errs {
+			for targetID, targets := range errsByID {
+				want := id == targetID
+				for _, target := range targets {
+					assert.Equalf(t, want, errors.Is(err, target), "errors.Is(%v [ID %d], %v [ID %d])", err, id, target, targetID)
+				}
+			}
+
+			for _, target := range unidentified {
+				assert.Falsef(t, errors.Is(err, target), "errors.Is(%v [ID %d], %v)", err, id, target)
+			}
+		}
+	}
+}
+
+func Example() {
+	id42 := WithID(42, "hello")
+	alsoWithID42 := WithIDf(42, "%s", "world")
+	unidentified := errors.New("hello")
+
+	fmt.Println(errors.Is(id42, alsoWithID42))
+	fmt.Println(errors.Is(id42, unidentified))
+
+	// Output:
+	// true
+	// false
 }

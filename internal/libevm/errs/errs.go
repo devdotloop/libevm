@@ -26,30 +26,49 @@ import (
 	"fmt"
 )
 
-// An ID is a distinct numeric identifier for an error. It has no effect on the
-// error message and can only be accessed with this package.
+// An ID is a distinct numeric identifier for an error. Any two errors with the
+// same ID will result in [errors.Is] returning true, regardless of their
+// messages.
 type ID int
 
-// Error returns a new error with the ID.
-func (id ID) Error(msg string) error {
-	return noWrap{errors.New(msg), id}
+// An identifier performs ID comparison, for embedding in all error types to
+// provide their Is() method.
+type identifier struct {
+	id ID
+}
+
+func (id identifier) errorID() ID { return id.id }
+
+func (id identifier) Is(target error) bool {
+	t, ok := target.(interface{ errorID() ID })
+	if !ok {
+		return false
+	}
+	return t.errorID() == id.errorID()
+}
+
+func (id ID) asIdentifier() identifier { return identifier{id} }
+
+// WithID returns a new error with the ID and message.
+func WithID(id ID, msg string) error {
+	return noWrap{errors.New(msg), id.asIdentifier()}
 }
 
 type noWrap struct {
 	error
-	id ID
+	identifier
 }
 
-// Errorf is the formatted equivalent of [ID.Error], supporting the same
+// WithIDf is the formatted equivalent of [WithID], supporting the same
 // wrapping semantics as [fmt.Errorf].
-func (id ID) Errorf(format string, a ...any) error {
+func WithIDf(id ID, format string, a ...any) error {
 	switch err := fmt.Errorf(format, a...).(type) {
 	case singleWrapper:
-		return single{err, id}
+		return single{err, id.asIdentifier()}
 	case multiWrapper:
-		return multi{err, id}
+		return multi{err, id.asIdentifier()}
 	default:
-		return noWrap{err, id}
+		return noWrap{err, id.asIdentifier()}
 	}
 }
 
@@ -60,7 +79,7 @@ type singleWrapper interface {
 
 type single struct {
 	singleWrapper
-	id ID
+	identifier
 }
 
 type multiWrapper interface {
@@ -70,20 +89,5 @@ type multiWrapper interface {
 
 type multi struct {
 	multiWrapper
-	id ID
-}
-
-// IDOf returns the ID of the error, if one exists, and a flag to indicate as
-// such. IDOf does not unwrap errors.
-func IDOf(err error) (ID, bool) {
-	switch err := err.(type) {
-	case noWrap:
-		return err.id, true
-	case single:
-		return err.id, true
-	case multi:
-		return err.id, true
-	default:
-		return 0, false
-	}
+	identifier
 }

@@ -197,9 +197,7 @@ func TestUnmarshalChainConfigJSON_Errors(t *testing.T) {
 			data := []byte(testCase.jsonData)
 			config := ChainConfig{}
 			err := UnmarshalChainConfigJSON(data, &config, testCase.extra, testCase.reuseJSONRoot)
-			got, ok := errs.IDOf(err)
-			require.True(t, ok, "errs.IDOf(UnmarshalChainConfigJSON())")
-			assert.Equalf(t, testCase.wantErrID, got, "UnmarshalChainConfigJSON() got error %v", err)
+			assert.ErrorIs(t, err, errs.WithID(testCase.wantErrID, ""))
 		})
 	}
 }
@@ -243,9 +241,7 @@ func TestMarshalChainConfigJSON_Errors(t *testing.T) {
 
 			config := ChainConfig{}
 			_, err := MarshalChainConfigJSON(config, testCase.extra, testCase.reuseJSONRoot)
-			got, ok := errs.IDOf(err)
-			require.True(t, ok, "errs.IDOf(MarshalChainConfigJSON())")
-			assert.Equalf(t, testCase.wantErrID, got, "MarshalChainConfigJSON() got error %v", err)
+			assert.ErrorIs(t, err, errs.WithID(testCase.wantErrID, ""))
 		})
 	}
 }

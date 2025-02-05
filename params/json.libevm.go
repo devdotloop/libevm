@@ -60,7 +60,7 @@ const (
 // [RegisterExtras]. The `extra` argument MUST NOT be nil.
 func UnmarshalChainConfigJSON[C any](data []byte, config *ChainConfig, extra *C, reuseJSONRoot bool) (err error) {
 	if extra == nil {
-		return errIDNilExtra.Errorf("%T argument is nil; use %T.UnmarshalJSON() directly", extra, config)
+		return errs.WithIDf(errIDNilExtra, "%T argument is nil; use %T.UnmarshalJSON() directly", extra, config)
 	}
 
 	if reuseJSONRoot {
@@ -68,7 +68,7 @@ func UnmarshalChainConfigJSON[C any](data []byte, config *ChainConfig, extra *C,
 			return fmt.Errorf("decoding JSON into %T: %s", config, err)
 		}
 		if err := json.Unmarshal(data, extra); err != nil {
-			return errIDDecodeJSONIntoExtra.Errorf("decoding JSON into %T: %s", extra, err)
+			return errs.WithIDf(errIDDecodeJSONIntoExtra, "decoding JSON into %T: %s", extra, err)
 		}
 		return nil
 	}
@@ -81,7 +81,7 @@ func UnmarshalChainConfigJSON[C any](data []byte, config *ChainConfig, extra *C,
 		extra,
 	}
 	if err := json.Unmarshal(data, &combined); err != nil {
-		return errIDDecodeJSONIntoCombination.Errorf(`decoding JSON into combination of %T and %T (as "extra" key): %s`, config, extra, err)
+		return errs.WithIDf(errIDDecodeJSONIntoCombination, `decoding JSON into combination of %T and %T (as "extra" key): %s`, config, extra, err)
 	}
 	return nil
 }
@@ -112,7 +112,7 @@ func MarshalChainConfigJSON[C any](config ChainConfig, extra C, reuseJSONRoot bo
 		}
 		data, err = json.Marshal(jsonExtra)
 		if err != nil {
-			return nil, errIDEncodeJSONCombination.Errorf(`encoding combination of %T and %T (as "extra" key) to JSON: %s`, config, extra, err)
+			return nil, errs.WithIDf(errIDEncodeJSONCombination, `encoding combination of %T and %T (as "extra" key) to JSON: %s`, config, extra, err)
 		}
 		return data, nil
 	}
@@ -128,13 +128,13 @@ func MarshalChainConfigJSON[C any](config ChainConfig, extra C, reuseJSONRoot bo
 	}
 	extraJSONRaw, err := toJSONRawMessages(extra)
 	if err != nil {
-		return nil, errIDEncodeExtraToRawJSON.Errorf("converting extra config to JSON raw messages: %s", err)
+		return nil, errs.WithIDf(errIDEncodeExtraToRawJSON, "converting extra config to JSON raw messages: %s", err)
 	}
 
 	for k, v := range extraJSONRaw {
 		_, ok := configJSONRaw[k]
 		if ok {
-			return nil, errIDEncodeDuplicateJSONKey.Errorf("duplicate JSON key %q in ChainConfig and extra %T", k, extra)
+			return nil, errs.WithIDf(errIDEncodeDuplicateJSONKey, "duplicate JSON key %q in ChainConfig and extra %T", k, extra)
 		}
 		configJSONRaw[k] = v
 	}
