@@ -51,7 +51,7 @@ func TestIs(t *testing.T) {
 			}
 
 			for _, target := range unidentified {
-				assert.Falsef(t, errors.Is(err, target), "errors.Is(%v [ID %d], %v)", err, id, target)
+				assert.NotErrorIsf(t, err, target, "error ID %d", id)
 			}
 		}
 	}
