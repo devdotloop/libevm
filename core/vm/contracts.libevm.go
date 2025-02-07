@@ -17,6 +17,7 @@
 package vm
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -97,7 +98,11 @@ func (args *evmCallArgs) run(p PrecompiledContract, input []byte) (ret []byte, e
 	case statefulPrecompile:
 		env := args.env()
 		ret, err := p(env, input)
-		args.gasRemaining = env.Gas()
+		if errors.Is(err, ErrOutOfGas) {
+			args.gasRemaining = 0
+		} else {
+			args.gasRemaining = env.Gas()
+		}
 		return ret, err
 	}
 }
