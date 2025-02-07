@@ -24,9 +24,9 @@ import (
 	"regexp"
 	"slices"
 
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/tests"
+	"github.com/ava-labs/libevm/core"
+	"github.com/ava-labs/libevm/core/rawdb"
+	"github.com/ava-labs/libevm/tests"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/exp/maps"
 )

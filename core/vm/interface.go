@@ -19,13 +19,13 @@ package vm
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/stateless"
-	"github.com/ethereum/go-ethereum/core/tracing"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/trie/utils"
+	"github.com/ava-labs/libevm/common"
+	"github.com/ava-labs/libevm/core/state"
+	"github.com/ava-labs/libevm/core/stateless"
+	"github.com/ava-labs/libevm/core/tracing"
+	"github.com/ava-labs/libevm/core/types"
+	"github.com/ava-labs/libevm/params"
+	"github.com/ava-labs/libevm/trie/utils"
 	"github.com/holiman/uint256"
 )
 
