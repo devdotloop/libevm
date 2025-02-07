@@ -21,8 +21,8 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/ava-labs/libevm/core/types"
+	"github.com/ava-labs/libevm/params"
 )
 
 func TestCalcExcessBlobGas(t *testing.T) {

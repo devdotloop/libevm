@@ -5,10 +5,10 @@ package p2p
 import (
 	"crypto/ecdsa"
 
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/p2p/nat"
-	"github.com/ethereum/go-ethereum/p2p/netutil"
+	"github.com/ava-labs/libevm/log"
+	"github.com/ava-labs/libevm/p2p/enode"
+	"github.com/ava-labs/libevm/p2p/nat"
+	"github.com/ava-labs/libevm/p2p/netutil"
 )
 
 var _ = (*configMarshaling)(nil)
