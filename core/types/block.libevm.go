@@ -103,6 +103,14 @@ func (b *Body) DecodeRLP(s *rlp.Stream) error {
 	return b.hooks().BodyRLPFieldPointersForDecoding(b).DecodeRLP(s)
 }
 
+// HeaderRaw returns the [Header] of the [Block] as a pointer, without deep
+// copying it. The only use case is to modify the header of the block in place,
+// which is not recommended. The [Block.Header] function should be used instead
+// in most cases.
+func (b *Block) HeaderRaw() *Header {
+	return b.header
+}
+
 // BlockRLPProxy exports the geth-internal type used for RLP {en,de}coding of a
 // [Block].
 type BlockRLPProxy extblock
