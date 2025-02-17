@@ -11,6 +11,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+permissions:
+  # Required: allow read access to the content for analysis.
+  contents: read
+  # Optional: allow read access to pull request. Use with `only-new-issues` linter option.
+  pull-requests: read
+
 jobs:
   go:
     runs-on: ubuntu-latest
@@ -24,6 +30,9 @@ jobs:
       FLAKY_REGEX: "ava-labs/libevm/(triedb/pathdb|eth|eth/tracers/js|eth/tracers/logger|accounts/abi/bind|accounts/keystore|eth/downloader|miner|ethclient|ethclient/gethclient|eth/catalyst)$"
     steps:
       - uses: actions/checkout@v4
+
+      - run: yamllint -c .yamllint.yml .
+
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -32,6 +41,21 @@ jobs:
       - name: Run `go generate`
         run: go list ./... | grep -Pv "${EXCLUDE_REGEX}" | xargs go generate;
       - run: git diff --exit-code
+
+      - name: goheader
+        # The goheader linter is only enabled in the CI so that it runs only on modified or new files
+        # (see only-new-issues: true). It is disabled in .golangci.yml because
+        # golangci-lint running locally is not aware of new/modified files compared to the base
+        # commit of a pull request, and we want to avoid reporting invalid goheader errors.
+        uses: golangci/golangci-lint-action@ec5d18412c0aeab7936cb16880d708ba2a64e1ae # v6.2.0 since v6.3.1 does not handle `only-new-issues` correctly
+        with:
+          version: v1.60
+          only-new-issues: true
+          args: --enable-only goheader
+
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.60
 
       - name: Run flaky tests sequentially
         run:
@@ -47,6 +71,11 @@ jobs:
         working-directory: ./libevm/tooling
     steps:
       - uses: actions/checkout@v4
+
+      - uses: ludeeus/action-shellcheck@2.0.0
+        with:
+          scandir: "./libevm"
+
       - uses: actions/setup-go@v5
         with:
           go-version-file: ./libevm/tooling/go.mod
