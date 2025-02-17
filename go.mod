@@ -1,6 +1,6 @@
 module github.com/ava-labs/libevm
 
-go 1.20
+go 1.23
 
 retract (
 	// Bad semver formats resulting in incorrect precedence
