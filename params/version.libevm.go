@@ -20,11 +20,11 @@ import "fmt"
 
 const (
 	LibEVMVersionMajor = 0
-	LibEVMVersionMinor = 1
+	LibEVMVersionMinor = 2
 	LibEVMVersionPatch = 0
 
-	libEVMReleaseType      releaseType = betaRelease
-	libEVMReleaseCandidate uint        = 0 // ignored unless [libEVMReleaseType] == [releaseCandidate]
+	libEVMReleaseType      releaseType = releaseCandidate
+	libEVMReleaseCandidate uint        = 3 // ignored unless [libEVMReleaseType] == [releaseCandidate]
 )
 
 // LibEVMVersion holds the textual version string of `libevm` modifications.

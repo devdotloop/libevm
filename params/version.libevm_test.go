@@ -29,7 +29,7 @@ func TestLibEVMVersioning(t *testing.T) {
 
 	// This is a deliberate change-detector test to provide us with a copyable
 	// string of the current version, useful for git tagging.
-	const curr = "1.13.14-0.1.0.beta"
+	const curr = "1.13.14-0.2.0.rc.3"
 	if got, want := LibEVMVersion, curr; got != want {
 		t.Errorf("got LibEVMVersion %q; want %q", got, want)
 	}
