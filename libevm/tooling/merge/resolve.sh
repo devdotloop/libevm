@@ -21,12 +21,20 @@ set -eux;
 
 cd "$(git rev-parse --show-toplevel)";
 
+# Files for which we are taking full control have any incoming changes
+# discarded.
 OVERWRITING=(".github/workflows/go.yml" ".golangci.yml")
 git checkout --ours -- "${OVERWRITING[@]}";
 git add "${OVERWRITING[@]}";
 
+# Files deleted by geth are deleted locally too because they're guaranteed to
+# not be our code due to the libevm naming convention.
 git status | grep "deleted by them" | awk '{print $NF}' | xargs -r git rm || echo "No files deleted upstream";
 
+# There are a number of conflicts due to the module renaming, which can be
+# resolved mechanically by accepting the incoming changes. This is a blunt
+# first-pass approach, accepting entire files. It will start an interactive
+# terminal UI with instructions.
 cd ./libevm/tooling/merge;
 ACCEPTING=$(git status | grep "both modified" | awk '{print $NF}' | grep -P "\.go$" | go run . resolve theirs);
 if [[ -n "${ACCEPTING[*]// }" ]]; then # $x// removes whitespace
