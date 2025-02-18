@@ -19,8 +19,8 @@ package tests
 import (
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/ava-labs/libevm/common"
+	"github.com/ava-labs/libevm/params"
 )
 
 func TestTransaction(t *testing.T) {
