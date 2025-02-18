@@ -54,10 +54,6 @@ func theirs(cmd *cobra.Command, _ []string) error {
 	return err
 }
 
-type conflict struct {
-	Current, Ancestor, Incoming []string
-}
-
 type conflictState string
 
 const (
@@ -81,13 +77,17 @@ func init() {
 	}
 }
 
-func nextConflictState(line string) (conflictState, bool) {
+func readConflictDelimiter(line string) (conflictState, bool) {
 	for _, d := range conflictDelimOrder {
 		if strings.HasPrefix(line, string(d)) {
 			return d, true
 		}
 	}
 	return "", false
+}
+
+type conflict struct {
+	Current, Ancestor, Incoming []string
 }
 
 type fileConflicts struct {
@@ -110,7 +110,7 @@ func findConflicts(path string) (*fileConflicts, error) {
 	)
 	for state := noConflict; lines.Scan(); {
 		line := lines.Text()
-		next, ok := nextConflictState(line)
+		next, ok := readConflictDelimiter(line)
 		if !ok {
 			if state != noConflict {
 				chunk = append(chunk, line)
