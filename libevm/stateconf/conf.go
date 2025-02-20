@@ -17,7 +17,7 @@
 // Package stateconf configures state management.
 package stateconf
 
-import "github.com/ethereum/go-ethereum/libevm/options"
+import "github.com/ava-labs/libevm/libevm/options"
 
 // A SnapshotUpdateOption configures the behaviour of
 // state.SnapshotTree.Update() implementations. This will be removed along with

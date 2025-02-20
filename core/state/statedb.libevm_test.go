@@ -22,11 +22,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/state/snapshot"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/libevm/stateconf"
+	"github.com/ava-labs/libevm/common"
+	"github.com/ava-labs/libevm/core/rawdb"
+	"github.com/ava-labs/libevm/core/state/snapshot"
+	"github.com/ava-labs/libevm/core/types"
+	"github.com/ava-labs/libevm/libevm/stateconf"
 )
 
 func TestStateDBCommitPropagatesOptions(t *testing.T) {
