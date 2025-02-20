@@ -19,9 +19,9 @@ package state
 import (
 	"reflect"
 
-	"github.com/ava-labs/libevm/common"
-	"github.com/ava-labs/libevm/core/state/snapshot"
-	"github.com/ava-labs/libevm/libevm/stateconf"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/state/snapshot"
+	"github.com/ethereum/go-ethereum/libevm/stateconf"
 )
 
 // SnapshotTree mirrors the functionality of a [snapshot.Tree], allowing for
