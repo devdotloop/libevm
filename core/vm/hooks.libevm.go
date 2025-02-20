@@ -16,7 +16,7 @@
 
 package vm
 
-import "github.com/ava-labs/libevm/params"
+import "github.com/ethereum/go-ethereum/params"
 
 // RegisterHooks registers the Hooks. It is expected to be called in an `init()`
 // function and MUST NOT be called more than once.
