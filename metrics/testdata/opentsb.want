@@ -20,4 +20,4 @@ put pre.second.one-minute 978307200 0.00 host=hal9000
 put pre.second.five-minute 978307200 0.00 host=hal9000
 put pre.second.fifteen-minute 978307200 0.00 host=hal9000
 put pre.second.mean-rate 978307200 0.00 host=hal9000
-put pre.tau.count 978307200 1.570000 host=hal9000
+put pre.tau.count 978307200 4.710000 host=hal9000
