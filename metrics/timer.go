@@ -46,12 +46,7 @@ func NewCustomTimer(h Histogram, m Meter) Timer {
 // Be sure to unregister the meter from the registry once it is of no use to
 // allow for garbage collection.
 func NewRegisteredTimer(name string, r Registry) Timer {
-	c := NewTimer()
-	if nil == r {
-		r = DefaultRegistry
-	}
-	r.Register(name, c)
-	return c
+	return GetOrRegisterTimer(name, r)
 }
 
 // NewTimer constructs a new StandardTimer using an exponentially-decaying

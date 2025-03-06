@@ -35,12 +35,7 @@ func GetOrRegisterResettingTimer(name string, r Registry) ResettingTimer {
 
 // NewRegisteredResettingTimer constructs and registers a new StandardResettingTimer.
 func NewRegisteredResettingTimer(name string, r Registry) ResettingTimer {
-	c := NewResettingTimer()
-	if nil == r {
-		r = DefaultRegistry
-	}
-	r.Register(name, c)
-	return c
+	return GetOrRegisterResettingTimer(name, r)
 }
 
 // NewResettingTimer constructs a new StandardResettingTimer

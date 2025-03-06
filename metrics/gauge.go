@@ -35,12 +35,7 @@ func NewGauge() Gauge {
 
 // NewRegisteredGauge constructs and registers a new StandardGauge.
 func NewRegisteredGauge(name string, r Registry) Gauge {
-	c := NewGauge()
-	if nil == r {
-		r = DefaultRegistry
-	}
-	r.Register(name, c)
-	return c
+	return GetOrRegisterGauge(name, r)
 }
 
 // gaugeSnapshot is a read-only copy of another Gauge.

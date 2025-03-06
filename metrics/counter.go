@@ -52,12 +52,7 @@ func NewCounterForced() Counter {
 
 // NewRegisteredCounter constructs and registers a new StandardCounter.
 func NewRegisteredCounter(name string, r Registry) Counter {
-	c := NewCounter()
-	if nil == r {
-		r = DefaultRegistry
-	}
-	r.Register(name, c)
-	return c
+	return GetOrRegisterCounter(name, r)
 }
 
 // NewRegisteredCounterForced constructs and registers a new StandardCounter
@@ -65,12 +60,7 @@ func NewRegisteredCounter(name string, r Registry) Counter {
 // Be sure to unregister the counter from the registry once it is of no use to
 // allow for garbage collection.
 func NewRegisteredCounterForced(name string, r Registry) Counter {
-	c := NewCounterForced()
-	if nil == r {
-		r = DefaultRegistry
-	}
-	r.Register(name, c)
-	return c
+	return GetOrRegisterCounterForced(name, r)
 }
 
 // counterSnapshot is a read-only copy of another Counter.

@@ -40,12 +40,7 @@ func NewHistogram(s Sample) Histogram {
 // NewRegisteredHistogram constructs and registers a new StandardHistogram from
 // a Sample.
 func NewRegisteredHistogram(name string, r Registry, s Sample) Histogram {
-	c := NewHistogram(s)
-	if nil == r {
-		r = DefaultRegistry
-	}
-	r.Register(name, c)
-	return c
+	return GetOrRegisterHistogram(name, r, s)
 }
 
 // NilHistogram is a no-op Histogram.

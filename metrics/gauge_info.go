@@ -44,12 +44,7 @@ func NewGaugeInfo() GaugeInfo {
 
 // NewRegisteredGaugeInfo constructs and registers a new StandardGaugeInfo.
 func NewRegisteredGaugeInfo(name string, r Registry) GaugeInfo {
-	c := NewGaugeInfo()
-	if nil == r {
-		r = DefaultRegistry
-	}
-	r.Register(name, c)
-	return c
+	return GetOrRegisterGaugeInfo(name, r)
 }
 
 // gaugeInfoSnapshot is a read-only copy of another GaugeInfo.

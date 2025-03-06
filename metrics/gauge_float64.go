@@ -34,12 +34,7 @@ func NewGaugeFloat64() GaugeFloat64 {
 
 // NewRegisteredGaugeFloat64 constructs and registers a new StandardGaugeFloat64.
 func NewRegisteredGaugeFloat64(name string, r Registry) GaugeFloat64 {
-	c := NewGaugeFloat64()
-	if nil == r {
-		r = DefaultRegistry
-	}
-	r.Register(name, c)
-	return c
+	return GetOrRegisterGaugeFloat64(name, r)
 }
 
 // gaugeFloat64Snapshot is a read-only copy of another GaugeFloat64.

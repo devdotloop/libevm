@@ -53,12 +53,7 @@ func NewCounterFloat64Forced() CounterFloat64 {
 
 // NewRegisteredCounterFloat64 constructs and registers a new StandardCounterFloat64.
 func NewRegisteredCounterFloat64(name string, r Registry) CounterFloat64 {
-	c := NewCounterFloat64()
-	if nil == r {
-		r = DefaultRegistry
-	}
-	r.Register(name, c)
-	return c
+	return GetOrRegisterCounterFloat64(name, r)
 }
 
 // NewRegisteredCounterFloat64Forced constructs and registers a new StandardCounterFloat64
@@ -66,12 +61,7 @@ func NewRegisteredCounterFloat64(name string, r Registry) CounterFloat64 {
 // Be sure to unregister the counter from the registry once it is of no use to
 // allow for garbage collection.
 func NewRegisteredCounterFloat64Forced(name string, r Registry) CounterFloat64 {
-	c := NewCounterFloat64Forced()
-	if nil == r {
-		r = DefaultRegistry
-	}
-	r.Register(name, c)
-	return c
+	return GetOrRegisterCounterFloat64Forced(name, r)
 }
 
 // counterFloat64Snapshot is a read-only copy of another CounterFloat64.
