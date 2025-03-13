@@ -17,7 +17,7 @@
 package core
 
 import (
-	"github.com/ava-labs/libevm/log"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 // canExecuteTransaction is a convenience wrapper for calling the
