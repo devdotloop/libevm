@@ -22,7 +22,7 @@ jobs:
 
   go_test_short:
     env:
-      FLAKY_REGEX: "ava-labs/libevm/(triedb/pathdb|eth|eth/tracers/js|eth/tracers/logger|accounts/abi/bind|accounts/keystore|eth/downloader|miner|ethclient|ethclient/gethclient|eth/catalyst)$"
+      FLAKY_REGEX: "ava-labs/libevm/(triedb/pathdb|eth|eth/tracers/js|eth/tracers/logger|eth/tracers/internal/tracetest|accounts/abi/bind|accounts/keystore|eth/downloader|miner|ethclient|ethclient/gethclient|eth/catalyst)$"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,6 +43,8 @@ jobs:
     defaults:
       run:
         working-directory: ./libevm/tooling
+    env:
+      TARGET_BRANCH: ${{ github.event_name == 'pull_request' && github.base_ref || github.ref }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -51,7 +53,8 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: "./libevm/tooling/go.mod"
-      - run: go test ./...
+      - run: git branch main origin/main
+      - run: go test -v ./... --target_branch="${{ env.TARGET_BRANCH }}"
 
   go_generate:
     env:
