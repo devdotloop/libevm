@@ -38,7 +38,7 @@ In the following, we create a release candidate tag `v1.13.14-0.2.0.rc.4`.
 
     ```bash
     git tag v1.13.14-0.2.0.rc.4
-    git push v1.13.14-0.2.0.rc.4
+    git push origin v1.13.14-0.2.0.rc.4
     ```
 
 1. (optional) you can then cleanup with:
