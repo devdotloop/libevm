@@ -14,8 +14,7 @@ In the following, we create a release candidate tag `v1.13.14-0.2.0.rc.4`.
     ```
 
     The `myusername/release/v1.13.14-0.2.0.rc.4` branch will be used to add "release modifications" and will target the branch `release/v1.13.14-0.2.0.rc.4` in a pull request.
-1. Run script `./cherrypick.sh` which cherry picks all Geth commits listed in [cherrypicks](cherrypicks)
-    - you may have to resolve conflicts
+1. Run the script `./cherrypick.sh` which cherry picks all Geth commits listed in [cherrypicks](cherrypicks). You may have to resolve conflicts.
 1. Modify [params/version.libevm.go](/params/version.libevm.go)
     - Change the `LibEVMVersion` to the correct final version name
     - Change the `LibEVMReleaseType` to the correct release type, for example `ReleaseCandidate`
