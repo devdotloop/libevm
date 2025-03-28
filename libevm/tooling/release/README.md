@@ -1,6 +1,6 @@
 # Release
 
-In the following, we create a release candidate tag `v1.13.14-0.2.0.rc.4`.
+In the following, we create a release candidate version `v1.13.14-0.2.0.rc.4`.
 
 1. Create two branches, usually from the tip of the `main` branch, but the base commit MAY be from anywhere on `main`:
 
