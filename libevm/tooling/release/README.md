@@ -13,7 +13,7 @@ In the following, we create a release candidate version `v1.13.14-0.2.0.rc.4`.
     ```
 
     The `myusername/release/v1.13.14-0.2.0.rc.4` branch will be used to add "release modifications" and will target the branch `release/v1.13.14-0.2.0.rc.4` in a pull request.
-1. Run the script `./cherrypick.sh` which cherry picks all Geth commits listed in [cherrypicks](cherrypicks). You may have to resolve conflicts.
+1. Run the script `./cherrypick.sh` which cherry picks all Geth commits listed in [cherrypicks](cherrypicks). You may have to resolve conflicts. If you encounter a CI error NOT from the `go_test_tooling` job, ideally [amend](https://git-scm.com/book/en/v2/Git-Tools-Rewriting-History) the cherry-picked commit(s) responsible for each issue.
 1. Modify [params/version.libevm.go](/params/version.libevm.go)
     - Change the `LibEVMReleaseType` to the correct release type, for example `ReleaseCandidate`
     - If planning a release candidate: set `libEVMReleaseCandidate` to the correct number; in this case `4`
