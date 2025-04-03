@@ -63,3 +63,18 @@ jobs:
         uses: ludeeus/action-shellcheck@2.0.0
         with:
           scandir: './libevm'
+
+  markdown:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Lint
+        uses: DavidAnson/markdownlint-cli2-action@05f32210e84442804257b2a6f20b273450ec8265 # v19.1.0
+        with:
+          globs: |
+            libevm/**.md
+          config: .markdownlint.json
+      - name: Link and misspelling check
+        uses: umbrelladocs/action-linkspector@a0567ce1c7c13de4a2358587492ed43cab5d0102 # v1.3.4
+        with:
+          filter_mode: diff_context
+          fail_level: any
