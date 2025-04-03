@@ -136,4 +136,4 @@ It is used exclusively in the `core/types` package in:
 Implementations of the hooks:
 
 - [coreth](https://github.com/ava-labs/coreth/blob/0d68be6b92be7c34095487b3a512b87b8b923caa/plugin/evm/customtypes/block_ext.go#L22)
-- subnet-evm: **NONE!** Because subnet-evm uses the same header, block and body as Geth, there is no need for hooks or extra payloads.
+- subnet-evm: **NONE!** Because subnet-evm uses the same block and body as Geth, there is no need for hooks or extra payloads.
