@@ -124,7 +124,7 @@ The hook is retrieved either from:
 - the method `Block.hooks()`
 - the method `Body.hooks()`
 
-This is because the hook, so far in the libevm consumers, has the same "payload" (fields in the implementation of `BlockBody`). It does have different methods for the `Block` and `Body` though, as explained below.
+This is because the hook, so far in the libevm consumers, has the same "payload" (fields in the implementation of `BlockBody`) for both the Body and the Block. It does have different methods for the `Block` and `Body` though, as explained below.
 
 It is used exclusively in the `core/types` package in:
 
