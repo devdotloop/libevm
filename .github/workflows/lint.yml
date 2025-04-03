@@ -72,7 +72,7 @@ jobs:
         with:
           globs: |
             libevm/**.md
-          config: .github/workflows/configs/.markdownlint.json
+          config: ../.github/workflows/configs/.markdownlint.json
       - name: Link and misspelling check
         uses: umbrelladocs/action-linkspector@a0567ce1c7c13de4a2358587492ed43cab5d0102 # v1.3.4
         with:
