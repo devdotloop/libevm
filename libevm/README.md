@@ -1,5 +1,9 @@
 # libevm
 
+[![API Reference](https://pkg.go.dev/badge/github.com/ava-labs/libevm)](https://pkg.go.dev/github.com/ava-labs/libevm?tab=doc)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ava-labs/libevm)](https://goreportcard.com/report/github.com/ava-labs/libevm)
+[![Go Build & Test](https://github.com/ava-labs/libevm/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/ava-labs/libevm/actions/workflows/go.yml)
+
 The Ethereum Virtual Machine (EVM) as a library, `libevm` is a fork of [`geth`](https://github.com/ethereum/go-ethereum) with injectable configuration directives.
 Although designed to support the Avalanche [C-Chain](https://github.com/ava-labs/coreth) and [EVM-L1s](https://github.com/ava-labs/subnet-evm) (formerly *subnets*), configuration is general-purpose and backwards-compatible with `geth`.
 We are immensely grateful for the hard work of the `geth` authors, and hope that our contribution can be of value to others too. Thank you!
