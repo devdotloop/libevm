@@ -1,4 +1,4 @@
-module github.com/ava-labs/libevm
+module github.com/devdotloop/libevm
 
 go 1.23
 
